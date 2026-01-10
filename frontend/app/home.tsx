@@ -86,11 +86,11 @@ export default function HomeScreen() {
 
         <View style={styles.grid}>
           {/* Botón 1: Mis Materias */}
-          <GridButton 
-            icon="book-outline" 
-            label="Mis Materias" 
-            color="#4CAF50" 
-            onPress={() => router.push('/plan-estudios')}
+          <GridButton
+            icon="book-outline"
+            label="Mis Materias"
+            color="#4CAF50"
+            onPress={() => router.push('/mis-materias')}
           />
           
           {/* Botón 2: Horarios */}

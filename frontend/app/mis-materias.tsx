@@ -377,23 +377,19 @@ function MisMateriasScreen() {
 
             {materiaSeleccionada && (
               <View style={styles.materiaSeleccionadaContainer}>
-                <Text style={styles.materiaSeleccionadaLabel}>Materia:</Text>
-                <Text style={styles.materiaSeleccionadaNombre}>{materiaSeleccionada.nombre}</Text>
-                <Text style={styles.materiaSeleccionadaNivel}>
-                  Nivel {materiaSeleccionada.nivel || 'N/A'} • #{materiaSeleccionada.numero || 'N/A'}
-                </Text>
+                <View style={styles.materiaSeleccionadaInfo}>
+                  <Text style={styles.materiaSeleccionadaNombre}>{materiaSeleccionada.nombre}</Text>
+                  <Text style={styles.materiaSeleccionadaNivel}>
+                    Nivel {materiaSeleccionada.nivel || 'N/A'} • #{materiaSeleccionada.numero || 'N/A'}
+                  </Text>
+                </View>
                 {modoEdicion && materiaEditando && (
-                  <View style={styles.estadoActualContainer}>
-                    <Text style={styles.estadoActualLabel}>Estado actual:</Text>
-                    <View style={[styles.estadoActualBadge, {
-                      backgroundColor: ESTADOS_MATERIA[materiaEditando.estado].bgColor
+                  <View style={styles.estadoActualBadgeSmall}>
+                    <Text style={[styles.estadoActualTextSmall, {
+                      color: ESTADOS_MATERIA[materiaEditando.estado].color
                     }]}>
-                      <Text style={[styles.estadoActualText, {
-                        color: ESTADOS_MATERIA[materiaEditando.estado].color
-                      }]}>
-                        {ESTADOS_MATERIA[materiaEditando.estado].label}
-                      </Text>
-                    </View>
+                      {ESTADOS_MATERIA[materiaEditando.estado].label}
+                    </Text>
                   </View>
                 )}
               </View>
@@ -479,7 +475,7 @@ const styles = StyleSheet.create({
   },
 
   scrollView: { flex: 1 },
-  scrollContent: { padding: 20, paddingBottom: 50 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 50 },
 
   section: { marginBottom: 30 },
 
@@ -549,18 +545,18 @@ const styles = StyleSheet.create({
 
   materiaCardContainer: {
     position: 'relative',
-    marginBottom: 12
+    marginBottom: 10
   },
 
   materiaCard: {
     backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: 14,
+    padding: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
     borderWidth: 1,
     borderColor: '#f0f0f0'
   },
@@ -579,17 +575,17 @@ const styles = StyleSheet.create({
     elevation: 2
   },
 
-  materiaInfo: { marginBottom: 10 },
+  materiaInfo: { marginBottom: 8 },
 
   materiaNombre: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 4
+    marginBottom: 2
   },
 
   materiaNivel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666'
   },
 
@@ -597,13 +593,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 12
+    marginTop: 10
   },
 
   estadoBadge: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 18,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -612,7 +608,7 @@ const styles = StyleSheet.create({
   },
 
   estadoText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     textAlign: 'center'
   },
@@ -761,66 +757,54 @@ const styles = StyleSheet.create({
   },
 
   materiaSeleccionadaContainer: {
-    padding: 20,
+    padding: 12,
     backgroundColor: '#f8f9fa',
     marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12
+    marginTop: 12,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between'
   },
 
-  materiaSeleccionadaLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4
+  materiaSeleccionadaInfo: {
+    flex: 1
   },
 
   materiaSeleccionadaNombre: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#333',
     marginBottom: 2
   },
 
   materiaSeleccionadaNivel: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666'
   },
 
-  estadoActualContainer: {
-    marginTop: 12,
-    alignItems: 'center'
+  estadoActualBadgeSmall: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.05)'
   },
 
-  estadoActualLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5
-  },
-
-  estadoActualBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16
-  },
-
-  estadoActualText: {
-    fontSize: 14,
+  estadoActualTextSmall: {
+    fontSize: 11,
     fontWeight: '600'
   },
 
 
+
   estadoOptionsScrollView: {
-    maxHeight: 200, // Altura máxima para permitir scroll
+    maxHeight: 280, // Altura aumentada para mostrar más opciones sin scroll
   },
 
   estadoOptionsContent: {
-    padding: 20
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 20
   },
 
   estadoOptionsTitle: {
