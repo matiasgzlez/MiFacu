@@ -2,6 +2,7 @@ import { DataSource } from "typeorm";
 import { Materia } from "../models/materias.model";
 import { Recordatorio } from "../models/recordatorios.model";
 import { Final } from "../models/finales.model";
+import { UsuarioMateria } from "../models/usuario-materias.model";
 import { Duración } from "../types/materias";
 import dotenv from "dotenv";
 
@@ -13,7 +14,7 @@ const SeedDataSource = new DataSource({
     url: process.env.DATABASE_URL,
     synchronize: false, // Desactivado para evitar conflictos
     logging: false,
-    entities: [Materia, Recordatorio, Final],
+    entities: [Materia, Recordatorio, Final, UsuarioMateria],
     extra: {
         ssl: {
             rejectUnauthorized: false
