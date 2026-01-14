@@ -14,7 +14,9 @@ import {
   useColorScheme,
   TextInput,
   Pressable,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal,
+  TouchableWithoutFeedback
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../src/constants/theme';
@@ -33,6 +35,16 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [carreraProgreso, setCarreraProgreso] = useState(0);
 
+  // Estados para el Modal de Estadísticas
+  const [statsModalVisible, setStatsModalVisible] = useState(false);
+  const [stats, setStats] = useState({
+    aprobadas: 0,
+    cursando: 0,
+    regulares: 0,
+    totalPlan: 0,
+    noCursadas: 0
+  });
+
   // Colores dinámicos
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
@@ -50,30 +62,41 @@ export default function HomeScreen() {
     try {
       setLoading(true);
 
-      // Intentar obtener ID legacy de AsyncStorage (igual que mis-materias.tsx)
       let userId = await AsyncStorage.getItem('usuario_nombre');
 
-      // Si no hay legacy, usar AuthContext
       if (!userId && user) {
         userId = user.id;
       }
 
       if (userId) {
-        // 1. Obtener materias del usuario para el numerador (Aprobadas)
+        // 1. Obtener materias del usuario
         const userMaterias = await materiasApi.getMateriasByUsuario(userId);
-        const aprobadas = userMaterias ? userMaterias.filter((m: any) => m.estado === 'aprobado').length : 0;
 
-        // 2. Obtener TODAS las materias del plan para el denominador (Total Carrera)
+        // 2. Obtener TODAS las materias del plan
         const allMaterias = await materiasApi.getMaterias();
         const totalPlan = allMaterias ? allMaterias.length : 0;
+
+        // 3. Calcular Estadísticas
+        const aprobadas = userMaterias ? userMaterias.filter((m: any) => m.estado === 'aprobado').length : 0;
+        const cursando = userMaterias ? userMaterias.filter((m: any) => m.estado === 'cursado').length : 0;
+        const regulares = userMaterias ? userMaterias.filter((m: any) => m.estado === 'regular').length : 0;
+        const noCursadas = totalPlan - (userMaterias ? userMaterias.length : 0);
+
+        setStats({
+          aprobadas,
+          cursando,
+          regulares,
+          totalPlan,
+          noCursadas
+        });
 
         if (totalPlan > 0) {
           const porcentaje = Math.round((aprobadas / totalPlan) * 100);
           setCarreraProgreso(porcentaje);
         }
       } else if (isGuest) {
-        // Lógica para invitados si se desea persistir progreso local
         setCarreraProgreso(0);
+        setStats({ aprobadas: 0, cursando: 0, regulares: 0, totalPlan: 0, noCursadas: 0 });
       }
     } catch (error) {
       console.error("Error cargando progreso:", error);
@@ -116,15 +139,20 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* BARRA DE PROGRESO DE CARRERA */}
+          {/* BARRA DE PROGRESO DE CARRERA (INTERACTIVA) */}
           <View style={styles.progressSection}>
-            <View style={styles.progressInfo}>
-              <Text style={[styles.progressText, { color: theme.icon }]}>Progreso de Carrera</Text>
-              <Text style={[styles.progressPercentage, { color: theme.tint }]}>{carreraProgreso}%</Text>
-            </View>
-            <View style={[styles.progressBarBg, { backgroundColor: theme.separator + '40' }]}>
-              <View style={[styles.progressBarFill, { width: `${carreraProgreso}%`, backgroundColor: theme.tint }]} />
-            </View>
+            <Pressable onPress={() => setStatsModalVisible(true)}>
+              <View style={styles.progressInfo}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={[styles.progressText, { color: theme.icon }]}>Progreso de Carrera</Text>
+                  <Ionicons name="information-circle-outline" size={14} color={theme.icon} style={{ marginLeft: 4, opacity: 0.7 }} />
+                </View>
+                <Text style={[styles.progressPercentage, { color: theme.tint }]}>{carreraProgreso}%</Text>
+              </View>
+              <View style={[styles.progressBarBg, { backgroundColor: theme.separator + '40' }]}>
+                <View style={[styles.progressBarFill, { width: `${carreraProgreso}%`, backgroundColor: theme.tint }]} />
+              </View>
+            </Pressable>
           </View>
         </SafeAreaView>
       </View>
@@ -254,6 +282,87 @@ export default function HomeScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* MODAL / SHEET DE ESTADÍSTICAS */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={statsModalVisible}
+        onRequestClose={() => setStatsModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setStatsModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.modalContent, { backgroundColor: cardColor }]}>
+                {/* Handle Bar */}
+                <View style={[styles.modalHandle, { backgroundColor: theme.separator }]} />
+
+                <View style={styles.modalHeader}>
+                  <Text style={[styles.modalTitle, { color: theme.text }]}>Estado Académico</Text>
+                  <TouchableOpacity onPress={() => setStatsModalVisible(false)} style={styles.closeButton}>
+                    <Ionicons name="close-circle" size={24} color={theme.icon} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Resumen Principal */}
+                <View style={styles.statsSummary}>
+                  <View style={styles.statsCircleContainer}>
+                    <Text style={[styles.statsBigNumber, { color: theme.text }]}>{stats.aprobadas}</Text>
+                    <Text style={[styles.statsLabel, { color: theme.icon }]}>Aprobadas</Text>
+                    <Text style={[styles.statsTotal, { color: theme.icon }]}>de {stats.totalPlan} materias</Text>
+                  </View>
+                </View>
+
+                {/* Desgloze de Estados */}
+                <View style={styles.statsGrid}>
+                  <StatItem
+                    icon="学校"
+                    iconName="school"
+                    number={stats.cursando}
+                    label="Cursando"
+                    color={theme.blue}
+                    theme={theme}
+                  />
+                  <StatItem
+                    icon="checkmark"
+                    iconName="checkbox"
+                    number={stats.regulares}
+                    label="Regulares"
+                    color={theme.orange}
+                    theme={theme}
+                  />
+                  <StatItem
+                    icon="trophy"
+                    iconName="trophy"
+                    number={stats.aprobadas}
+                    label="Aprobadas"
+                    color={theme.green}
+                    theme={theme}
+                  />
+                  <StatItem
+                    icon="book"
+                    iconName="book-outline"
+                    number={stats.noCursadas}
+                    label="Pendientes"
+                    color={theme.icon}
+                    theme={theme}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.fullReportButton, { backgroundColor: theme.tint }]}
+                  onPress={() => {
+                    setStatsModalVisible(false);
+                    router.push('/mis-materias');
+                  }}
+                >
+                  <Text style={styles.fullReportText}>Ver Plan de Estudios Completo</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
@@ -294,226 +403,79 @@ const TableRow = ({ icon, label, color, onPress, isLast, theme }: any) => (
   </Pressable>
 );
 
+const StatItem = ({ number, label, color, theme, iconName }: any) => (
+  <View style={[styles.statItem, { backgroundColor: color + '15' }]}>
+    <Ionicons name={iconName} size={24} color={color} style={{ marginBottom: 8 }} />
+    <Text style={[styles.statNumber, { color: theme.text }]}>{number}</Text>
+    <Text style={[styles.statLabelItem, { color: theme.icon }]}>{label}</Text>
+  </View>
+);
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  headerLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    marginBottom: 2,
-    textTransform: 'uppercase',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  avatarContainer: {
-    borderWidth: 2,
-    padding: 3,
-    borderRadius: 50,
-  },
-  avatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-  },
-  progressSection: {
-    marginTop: 5,
-  },
-  progressInfo: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  progressText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  progressPercentage: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  progressBarBg: {
-    height: 6,
-    borderRadius: 3,
-    width: '100%',
-    overflow: 'hidden',
-  },
-  progressBarFill: {
-    height: '100%',
-    borderRadius: 3,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  searchContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 38,
-    borderRadius: 10,
-    paddingHorizontal: 5,
-  },
-  searchInput: {
-    flex: 1,
-    height: '100%',
-    marginLeft: 8,
-    fontSize: 16,
-  },
-  section: {
-    marginBottom: 25,
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginBottom: 12,
-    marginLeft: 5,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  nextStepWidget: {
-    padding: 20,
-    borderRadius: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-  },
-  widgetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  widgetBadge: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  widgetBadgeText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  widgetMateria: {
-    color: 'white',
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 15,
-    letterSpacing: -0.5,
-  },
-  widgetFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  widgetInfoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  widgetInfoText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 6,
-    opacity: 0.9,
-  },
-  priorityGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  priorityCard: {
-    flex: 1,
-    marginHorizontal: 5,
-    padding: 16,
-    borderRadius: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  priorityIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  priorityLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  prioritySubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  tableContainer: {
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    overflow: 'hidden',
-  },
-  rowWrapper: {
+  container: { flex: 1 },
+  header: { paddingTop: 50, paddingBottom: 20, paddingHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  headerLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 2, textTransform: 'uppercase' },
+  headerTitle: { fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  avatarContainer: { borderWidth: 2, padding: 3, borderRadius: 50 },
+  avatar: { width: 42, height: 42, borderRadius: 21 },
+  progressSection: { marginTop: 5 },
+  progressInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  progressText: { fontSize: 12, fontWeight: '600' },
+  progressPercentage: { fontSize: 12, fontWeight: '700' },
+  progressBarBg: { height: 6, borderRadius: 3, width: '100%', overflow: 'hidden' },
+  progressBarFill: { height: '100%', borderRadius: 3 },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingBottom: 40 },
+  searchContainer: { paddingHorizontal: 20, paddingVertical: 12 },
+  searchBar: { flexDirection: 'row', alignItems: 'center', height: 38, borderRadius: 10, paddingHorizontal: 5 },
+  searchInput: { flex: 1, height: '100%', marginLeft: 8, fontSize: 16 },
+  section: { marginBottom: 25, paddingHorizontal: 20 },
+  sectionTitle: { fontSize: 13, fontWeight: '600', marginBottom: 12, marginLeft: 5, textTransform: 'uppercase', letterSpacing: 0.5 },
+  nextStepWidget: { padding: 20, borderRadius: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10 },
+  widgetHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  widgetBadge: { backgroundColor: 'rgba(255, 255, 255, 0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  widgetBadgeText: { color: 'white', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
+  widgetMateria: { color: 'white', fontSize: 22, fontWeight: '800', marginBottom: 15, letterSpacing: -0.5 },
+  widgetFooter: { flexDirection: 'row', alignItems: 'center' },
+  widgetInfoItem: { flexDirection: 'row', alignItems: 'center', marginRight: 20 },
+  widgetInfoText: { color: 'white', fontSize: 12, fontWeight: '600', marginLeft: 6, opacity: 0.9 },
+  priorityGrid: { flexDirection: 'row', justifyContent: 'space-between' },
+  priorityCard: { flex: 1, marginHorizontal: 5, padding: 16, borderRadius: 18, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+  priorityIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  priorityLabel: { fontSize: 16, fontWeight: '700' },
+  prioritySubtitle: { fontSize: 12, marginTop: 2 },
+  tableContainer: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+  rowWrapper: { width: '100%' },
+  rowContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, marginLeft: 55 },
+  rowIconBox: { position: 'absolute', left: -40, width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  rowLabel: { flex: 1, fontSize: 17, fontWeight: '400' },
+  infoBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, paddingBottom: 20 },
+  infoText: { fontSize: 11, fontWeight: '500', marginLeft: 6 },
+
+  // Modal Styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: {
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    padding: 24,
+    // Quitamos height fija para que crezca según contenido
+    paddingBottom: 50,
     width: '100%',
   },
-  rowContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginLeft: 55,
-  },
-  rowIconBox: {
-    position: 'absolute',
-    left: -40,
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rowLabel: {
-    flex: 1,
-    fontSize: 17,
-    fontWeight: '400',
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
-    paddingBottom: 20,
-  },
-  infoText: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginLeft: 6,
-  },
+  modalHandle: { width: 40, height: 5, borderRadius: 3, alignSelf: 'center', marginBottom: 20, opacity: 0.3 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
+  modalTitle: { fontSize: 22, fontWeight: '800' },
+  closeButton: { padding: 5 },
+  statsSummary: { alignItems: 'center', marginBottom: 30 },
+  statsCircleContainer: { alignItems: 'center' },
+  statsBigNumber: { fontSize: 56, fontWeight: '900', letterSpacing: -2, lineHeight: 60 },
+  statsLabel: { fontSize: 16, fontWeight: '600', marginBottom: 4 },
+  statsTotal: { fontSize: 13, fontWeight: '500', opacity: 0.6 },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12, marginBottom: 20 },
+  statItem: { width: '47%', padding: 16, borderRadius: 20, alignItems: 'center', marginBottom: 0 },
+  statNumber: { fontSize: 24, fontWeight: '800', marginBottom: 4 },
+  statLabelItem: { fontSize: 13, fontWeight: '600' },
+  fullReportButton: { marginTop: 10, padding: 18, borderRadius: 16, alignItems: 'center' },
+  fullReportText: { color: 'white', fontWeight: '700', fontSize: 16 },
 });
