@@ -27,7 +27,8 @@ export class UsuarioMateriasService {
     async addMateriaToUsuario(
         usuarioId: string,
         materiaId: number,
-        estado: EstadoMateriaUsuario = EstadoMateriaUsuario.NoCursado
+        estado: EstadoMateriaUsuario = EstadoMateriaUsuario.NoCursado,
+        scheduleData?: { dia?: string; hora?: number; duracion?: number; aula?: string }
     ): Promise<UsuarioMateria> {
         // Verificar que la materia existe
         const materia = await this.materiaRepository.findOne({
@@ -54,6 +55,15 @@ export class UsuarioMateriasService {
             estado
         });
 
+        if (scheduleData) {
+            Object.assign(usuarioMateria, {
+                dia: scheduleData.dia,
+                hora: scheduleData.hora !== undefined ? Number(scheduleData.hora) : null,
+                duracion: scheduleData.duracion !== undefined ? Number(scheduleData.duracion) : 2,
+                aula: scheduleData.aula
+            });
+        }
+
         return await this.usuarioMateriaRepository.save(usuarioMateria);
     }
 
@@ -61,7 +71,8 @@ export class UsuarioMateriasService {
     async updateEstadoMateria(
         usuarioId: string,
         materiaId: number,
-        estado: EstadoMateriaUsuario
+        estado: EstadoMateriaUsuario,
+        scheduleData?: { dia?: string; hora?: number; duracion?: number; aula?: string }
     ): Promise<UsuarioMateria> {
         const usuarioMateria = await this.usuarioMateriaRepository.findOne({
             where: { usuarioId, materiaId }
@@ -72,6 +83,16 @@ export class UsuarioMateriasService {
         }
 
         usuarioMateria.estado = estado;
+
+        if (scheduleData) {
+            Object.assign(usuarioMateria, {
+                dia: scheduleData.dia,
+                hora: scheduleData.hora !== undefined ? Number(scheduleData.hora) : usuarioMateria.hora,
+                duracion: scheduleData.duracion !== undefined ? Number(scheduleData.duracion) : usuarioMateria.duracion,
+                aula: scheduleData.aula
+            });
+        }
+
         return await this.usuarioMateriaRepository.save(usuarioMateria);
     }
 
@@ -90,7 +111,6 @@ export class UsuarioMateriasService {
 
     // Obtener materias disponibles para un usuario (todas menos las que ya tiene)
     async getMateriasDisponibles(usuarioId: string): Promise<Materia[]> {
-        // Obtener IDs de materias que el usuario ya tiene
         const usuarioMaterias = await this.usuarioMateriaRepository.find({
             where: { usuarioId },
             select: ['materiaId']
@@ -98,7 +118,6 @@ export class UsuarioMateriasService {
 
         const materiaIdsUsuario = usuarioMaterias.map(um => um.materiaId);
 
-        // Obtener todas las materias que NO están en la lista del usuario
         const query = this.materiaRepository.createQueryBuilder('materia');
 
         if (materiaIdsUsuario.length > 0) {

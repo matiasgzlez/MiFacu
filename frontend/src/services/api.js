@@ -71,15 +71,15 @@ export const materiasApi = {
         return response.data.data || response.data;
     },
 
-    addMateriaToUsuario: async (usuarioId, materiaId, estado = null) => {
-        const body = { materiaId };
+    addMateriaToUsuario: async (usuarioId, materiaId, estado = null, schedule = {}) => {
+        const body = { materiaId, ...schedule };
         if (estado) body.estado = estado;
         const response = await api.post(`/usuario-materias/${usuarioId}`, body);
         return response.data.data || response.data;
     },
 
-    updateEstadoMateria: async (usuarioId, materiaId, estado) => {
-        const response = await api.put(`/usuario-materias/${usuarioId}/${materiaId}`, { estado });
+    updateEstadoMateria: async (usuarioId, materiaId, estado, schedule = {}) => {
+        const response = await api.put(`/usuario-materias/${usuarioId}/${materiaId}`, { estado, ...schedule });
         return response.data.data || response.data;
     },
 

@@ -1,20 +1,39 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, FlatList } from 'react-native';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Modal,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  FlatList,
+  useColorScheme,
+  TouchableWithoutFeedback,
+  TextInput
+} from 'react-native';
+
+export type EstadoMateriaKey = 'no_cursado' | 'cursado' | 'regular' | 'aprobado';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { materiasApi as api } from '../src/services/api';
+import { Colors } from '../src/constants/theme';
 
 const { width } = Dimensions.get('window');
 
 // Estados posibles para las materias
-const ESTADOS_MATERIA = {
-  no_cursado: { label: 'No cursado', color: '#757575', bgColor: '#75757520' },
-  cursado: { label: 'Cursando', color: '#2196F3', bgColor: '#2196F320' },
-  regular: { label: 'Regular', color: '#FF9800', bgColor: '#FF980020' },
-  aprobado: { label: 'Aprobado', color: '#4CAF50', bgColor: '#4CAF5020' }
-};
+const getEstadosMateria = (theme: any) => ({
+  no_cursado: { label: 'No cursado', color: theme.icon, bgColor: theme.icon + '20' },
+  cursado: { label: 'Cursando', color: theme.blue, bgColor: theme.blue + '20' },
+  regular: { label: 'Regular', color: theme.orange, bgColor: theme.orange + '20' },
+  aprobado: { label: 'Aprobado', color: theme.green, bgColor: theme.green + '20' }
+} as const);
 
 interface Materia {
   id: number;
@@ -27,14 +46,22 @@ interface UsuarioMateria {
   id: number;
   usuarioId: string;
   materiaId: number;
-  estado: keyof typeof ESTADOS_MATERIA;
+  estado: EstadoMateriaKey;
   createdAt: string;
   updatedAt: string;
   materia: Materia;
+  dia?: string;
+  hora?: number;
+  duracion?: number;
+  aula?: string;
 }
 
 function MisMateriasScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme() ?? 'light';
+  const theme = Colors[colorScheme];
+  const ESTADOS_MATERIA = getEstadosMateria(theme);
+
   const [usuarioId, setUsuarioId] = useState<string>('');
   const [misMaterias, setMisMaterias] = useState<UsuarioMateria[]>([]);
   const [materiasDisponibles, setMateriasDisponibles] = useState<Materia[]>([]);
@@ -43,9 +70,15 @@ function MisMateriasScreen() {
   const [loadingAction, setLoadingAction] = useState(false);
   const [estadoModalVisible, setEstadoModalVisible] = useState(false);
   const [materiaSeleccionada, setMateriaSeleccionada] = useState<Materia | null>(null);
-  const [estadoSeleccionado, setEstadoSeleccionado] = useState<keyof typeof ESTADOS_MATERIA>('no_cursado');
+  const [estadoSeleccionado, setEstadoSeleccionado] = useState<EstadoMateriaKey>('no_cursado');
   const [materiaEditando, setMateriaEditando] = useState<UsuarioMateria | null>(null);
   const [modoEdicion, setModoEdicion] = useState(false);
+
+  // Estados para el Horario (solo si está cursando)
+  const [dia, setDia] = useState<string>('LU');
+  const [horaInicio, setHoraInicio] = useState<string>('18:00');
+  const [horaFin, setHoraFin] = useState<string>('20:00');
+  const [aula, setAula] = useState<string>('');
 
   // Cargar datos iniciales
   useFocusEffect(
@@ -85,8 +118,13 @@ function MisMateriasScreen() {
   const cargarMisMaterias = async (userId: string) => {
     try {
       const data = await api.getMateriasByUsuario(userId);
-      // Ordenar por número de materia como respaldo
-      const sortedData = data.sort((a: any, b: any) => (a.materia.numero || 0) - (b.materia.numero || 0));
+
+      // Ordenar: 1. Cursando primero, 2. Por número de materia
+      const sortedData = data.sort((a: any, b: any) => {
+        if (a.estado === 'cursado' && b.estado !== 'cursado') return -1;
+        if (a.estado !== 'cursado' && b.estado === 'cursado') return 1;
+        return (a.materia.numero || 0) - (b.materia.numero || 0);
+      });
       setMisMaterias(sortedData);
     } catch (error: any) {
       console.error('Error cargando mis materias:', error);
@@ -107,6 +145,10 @@ function MisMateriasScreen() {
   const seleccionarMateria = (materia: Materia) => {
     setMateriaSeleccionada(materia);
     setEstadoSeleccionado('no_cursado'); // Estado por defecto
+    setDia('LU');
+    setHoraInicio('18:00');
+    setHoraFin('20:00');
+    setAula('');
     setModoEdicion(false);
     setModalVisible(false); // Cerrar primera modal
     setEstadoModalVisible(true); // Abrir segunda modal
@@ -118,13 +160,25 @@ function MisMateriasScreen() {
     try {
       setLoadingAction(true);
 
+      // Parsear horas y calcular duración
+      const startH = parseInt(horaInicio.split(':')[0]) || 8;
+      const endH = parseInt(horaFin.split(':')[0]) || startH + 2;
+      const dur = Math.max(1, endH - startH);
+
+      const schedule = estadoSeleccionado === 'cursado' ? {
+        dia,
+        hora: startH,
+        duracion: dur,
+        aula
+      } : { dia: null, hora: null, duracion: null, aula: null };
+
       if (modoEdicion && materiaEditando) {
         // Modo edición: actualizar estado
-        await api.updateEstadoMateria(usuarioId, materiaEditando.materiaId, estadoSeleccionado);
-        Alert.alert('¡Éxito!', 'Estado de materia actualizado correctamente');
+        await api.updateEstadoMateria(usuarioId, materiaEditando.materiaId, estadoSeleccionado, schedule);
+        Alert.alert('¡Éxito!', 'Materia actualizada correctamente');
       } else {
         // Modo agregar: crear nueva materia
-        await api.addMateriaToUsuario(usuarioId, materiaSeleccionada.id, estadoSeleccionado as any);
+        await api.addMateriaToUsuario(usuarioId, materiaSeleccionada.id, estadoSeleccionado as any, schedule);
         Alert.alert('¡Éxito!', 'Materia agregada correctamente');
       }
 
@@ -132,6 +186,10 @@ function MisMateriasScreen() {
       setMateriaSeleccionada(null);
       setMateriaEditando(null);
       setEstadoSeleccionado('no_cursado');
+      setDia('LU');
+      setHoraInicio('18:00');
+      setHoraFin('20:00');
+      setAula('');
       setModoEdicion(false);
 
       await cargarDatos(); // Recargar datos
@@ -187,6 +245,14 @@ function MisMateriasScreen() {
     setMateriaSeleccionada(usuarioMateria.materia);
     setEstadoSeleccionado(usuarioMateria.estado);
     setMateriaEditando(usuarioMateria);
+    setDia(usuarioMateria.dia || 'LU');
+
+    const hIni = usuarioMateria.hora || 18;
+    const hFin = hIni + (usuarioMateria.duracion || 2);
+
+    setHoraInicio(`${hIni}:00`);
+    setHoraFin(`${hFin}:00`);
+    setAula(usuarioMateria.aula || '');
     setModoEdicion(true);
     setEstadoModalVisible(true);
   };
@@ -195,238 +261,316 @@ function MisMateriasScreen() {
     const estadoInfo = ESTADOS_MATERIA[item.estado];
 
     return (
-      <View style={styles.materiaCardContainer}>
-        <TouchableOpacity
-          style={styles.materiaCard}
-          onPress={() => abrirDetalleMateria(item)}
-          activeOpacity={0.7}
-        >
-          <View style={styles.materiaInfo}>
-            <Text style={styles.materiaNombre}>{item.materia.nombre}</Text>
-            <Text style={styles.materiaNivel}>
-              Nivel {item.materia.nivel || 'N/A'} • #{item.materia.numero || 'N/A'}
-            </Text>
-          </View>
+      <TouchableOpacity
+        style={[styles.materiaCard, { backgroundColor: theme.backgroundSecondary }]}
+        onPress={() => abrirDetalleMateria(item)}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.cardLeftStrip, { backgroundColor: estadoInfo.color }]} />
 
-          <View style={styles.materiaActions}>
-            <View style={[styles.estadoBadge, { backgroundColor: estadoInfo.bgColor }]}>
-              <Text style={[styles.estadoText, { color: estadoInfo.color }]}>
-                {estadoInfo.label}
+        <View style={styles.cardMainContent}>
+          <View style={styles.cardHeaderRow}>
+            <View style={[styles.tagContainer, { backgroundColor: estadoInfo.bgColor }]}>
+              <Text style={[styles.tagText, { color: estadoInfo.color }]}>
+                {estadoInfo.label.toUpperCase()}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={20} color="#ccc" />
+            <TouchableOpacity
+              onPress={() => eliminarMateria(item.materiaId, item.materia.nombre)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="trash-outline" size={18} color={theme.icon} style={{ opacity: 0.6 }} />
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
 
-        {/* Botón de eliminar en esquina superior derecha */}
-        <TouchableOpacity
-          style={styles.deleteButtonOverlay}
-          onPress={() => eliminarMateria(item.materiaId, item.materia.nombre)}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Ionicons name="trash-outline" size={16} color="#FF4444" />
-        </TouchableOpacity>
-      </View>
+          <Text style={[styles.materiaNombre, { color: theme.text }]} numberOfLines={1}>
+            {item.materia.nombre}
+          </Text>
+
+          <View style={styles.cardFooter}>
+            <View style={styles.metaItem}>
+              <Ionicons name="layers-outline" size={12} color={theme.icon} />
+              <Text style={[styles.materiaNivel, { color: theme.icon }]}>
+                Nivel {item.materia.nivel || 'N/A'}
+              </Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Ionicons name="barcode-outline" size={12} color={theme.icon} />
+              <Text style={[styles.materiaNivel, { color: theme.icon }]}>
+                #{item.materia.numero || 'N/A'}
+              </Text>
+            </View>
+          </View>
+
+          {item.estado === 'cursado' && item.dia && item.hora && (
+            <View style={[styles.scheduleBadge, { backgroundColor: theme.background }]}>
+              <Ionicons name="time-outline" size={12} color={theme.blue} />
+              <Text style={[styles.scheduleText, { color: theme.blue }]}>
+                {item.dia} {item.hora}:00 ({item.duracion}hs)
+                {item.aula ? ` • ${item.aula}` : ''}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.chevronContainer}>
+          <Ionicons name="chevron-forward" size={18} color={theme.icon} />
+        </View>
+      </TouchableOpacity>
     );
   };
 
   const renderMateriaDisponible = ({ item }: { item: Materia }) => (
     <TouchableOpacity
-      style={styles.disponibleCard}
+      style={[styles.disponibleCard, { backgroundColor: theme.backgroundSecondary }]}
       onPress={() => seleccionarMateria(item)}
       disabled={loadingAction}
+      activeOpacity={0.7}
     >
       <View style={styles.disponibleInfo}>
-        <Text style={styles.disponibleNombre}>{item.nombre}</Text>
-        <Text style={styles.disponibleNivel}>
+        <Text style={[styles.disponibleNombre, { color: theme.text }]}>{item.nombre}</Text>
+        <Text style={[styles.disponibleNivel, { color: theme.icon }]}>
           Nivel {item.nivel || 'N/A'} • #{item.numero || 'N/A'}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#666" />
+      <Ionicons name="add-circle-outline" size={24} color={theme.blue} />
     </TouchableOpacity>
   );
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Cargando tus materias...</Text>
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.tint} />
+        <Text style={[styles.loadingText, { color: theme.icon }]}>Cargando tus materias...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#2E5EC9" />
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'} />
 
       {/* HEADER */}
-      <LinearGradient colors={['#2E5EC9', '#4675D9']} style={styles.header}>
-        <SafeAreaView style={{ width: '100%' }}>
-          <View style={styles.headerContent}>
-            <TouchableOpacity onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={24} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Mis Materias</Text>
-            <View />
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
-
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* MIS MATERIAS */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>MIS MATERIAS ({misMaterias.length})</Text>
-            <TouchableOpacity onPress={() => setModalVisible(true)}>
-              <LinearGradient
-                colors={['#007AFF', '#0056CC']}
-                style={styles.addButton}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Ionicons name="add" size={20} color="#fff" />
-                <Text style={styles.addButtonText}>Agregar</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-
-          {misMaterias.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="book-outline" size={48} color="#ccc" />
-              <Text style={styles.emptyText}>No tienes materias agregadas</Text>
-              <Text style={styles.emptySubtext}>Agrega tus primeras materias para comenzar</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={misMaterias}
-              renderItem={renderMateriaItem}
-              keyExtractor={(item) => item.id.toString()}
-              scrollEnabled={false}
-            />
-          )}
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={[styles.backButton, { backgroundColor: theme.backgroundSecondary }]}
+          >
+            <Ionicons name="chevron-back" size={24} color={theme.text} />
+          </TouchableOpacity>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>Mis Materias</Text>
+          <TouchableOpacity
+            onPress={() => setModalVisible(true)}
+            style={[styles.backButton, { backgroundColor: theme.backgroundSecondary }]}
+          >
+            <Ionicons name="add" size={24} color={theme.text} />
+          </TouchableOpacity>
         </View>
-      </ScrollView>
 
-      {/* MODAL PARA AGREGAR MATERIAS */}
-      <Modal
-        visible={modalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Seleccionar Materia</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* MIS MATERIAS */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.icon }]}>MIS MATERIAS ({misMaterias.length})</Text>
             </View>
 
-            <Text style={styles.modalSubtitle}>
-              Elige una materia para continuar ({materiasDisponibles.length} disponibles)
-            </Text>
-
-            {materiasDisponibles.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="checkmark-circle" size={48} color="#4CAF50" />
-                <Text style={styles.emptyText}>¡Todas las materias agregadas!</Text>
-                <Text style={styles.emptySubtext}>Ya tienes todas las materias disponibles</Text>
+            {misMaterias.length === 0 ? (
+              <View style={[styles.emptyState, { backgroundColor: theme.backgroundSecondary }]}>
+                <Ionicons name="book-outline" size={48} color={theme.icon} style={{ opacity: 0.3 }} />
+                <Text style={[styles.emptyText, { color: theme.text }]}>No tienes materias</Text>
+                <Text style={[styles.emptySubtext, { color: theme.icon }]}>Agrega tus primeras materias para comenzar</Text>
               </View>
             ) : (
               <FlatList
-                data={materiasDisponibles}
-                renderItem={renderMateriaDisponible}
+                data={misMaterias}
+                renderItem={renderMateriaItem}
                 keyExtractor={(item) => item.id.toString()}
-                style={styles.modalList}
+                scrollEnabled={false}
               />
             )}
           </View>
-        </View>
+        </ScrollView>
+      </SafeAreaView>
+
+      {/* MODAL PARA AGREGAR MATERIAS */}
+      <Modal visible={modalVisible} animationType="slide" transparent={true}>
+        <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.modalContent, { backgroundColor: theme.backgroundSecondary }]}>
+                <View style={[styles.modalHandle, { backgroundColor: theme.icon + '40' }]} />
+                <View style={styles.modalHeaderStyle}>
+                  <Text style={[styles.modalTitle, { color: theme.text }]}>Seleccionar Materia</Text>
+                  <TouchableOpacity onPress={() => setModalVisible(false)}>
+                    <Ionicons name="close-circle" size={30} color={theme.icon} />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={[styles.modalSubtitle, { color: theme.icon }]}>
+                  Elige una materia para continuar ({materiasDisponibles.length} disponibles)
+                </Text>
+
+                {materiasDisponibles.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="checkmark-circle" size={48} color={theme.green} />
+                    <Text style={[styles.emptyText, { color: theme.text }]}>¡Todo al día!</Text>
+                    <Text style={[styles.emptySubtext, { color: theme.icon }]}>Ya tienes todas las materias disponibles</Text>
+                  </View>
+                ) : (
+                  <FlatList
+                    data={materiasDisponibles}
+                    renderItem={renderMateriaDisponible}
+                    keyExtractor={(item) => item.id.toString()}
+                    style={styles.modalList}
+                    showsVerticalScrollIndicator={false}
+                  />
+                )}
+                <View style={{ height: 30 }} />
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {/* MODAL PARA SELECCIONAR ESTADO */}
-      <Modal
-        visible={estadoModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setEstadoModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.estadoModalContent}>
-            <View style={styles.estadoModalHeader}>
-              <TouchableOpacity onPress={() => setEstadoModalVisible(false)}>
-                <Text style={styles.cancelButton}>Cancelar</Text>
-              </TouchableOpacity>
-              <Text style={styles.estadoModalTitle}>
-                {modoEdicion ? 'Editar Materia' : 'Seleccionar Estado'}
-              </Text>
-              <TouchableOpacity onPress={guardarMateria} disabled={loadingAction}>
-                <Text style={[styles.doneButton, loadingAction && { opacity: 0.5 }]}>
-                  {loadingAction ? (modoEdicion ? 'Guardando...' : 'Agregando...') : (modoEdicion ? 'Guardar' : 'Agregar')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {materiaSeleccionada && (
-              <View style={styles.materiaSeleccionadaContainer}>
-                <View style={styles.materiaSeleccionadaInfo}>
-                  <Text style={styles.materiaSeleccionadaNombre}>{materiaSeleccionada.nombre}</Text>
-                  <Text style={styles.materiaSeleccionadaNivel}>
-                    Nivel {materiaSeleccionada.nivel || 'N/A'} • #{materiaSeleccionada.numero || 'N/A'}
+      <Modal visible={estadoModalVisible} animationType="slide" transparent={true}>
+        <TouchableWithoutFeedback onPress={() => setEstadoModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={[styles.estadoModalContent, { backgroundColor: theme.backgroundSecondary }]}>
+                <View style={[styles.modalHandle, { backgroundColor: theme.icon + '40' }]} />
+                <View style={styles.estadoModalHeader}>
+                  <TouchableOpacity onPress={() => setEstadoModalVisible(false)}>
+                    <Text style={[styles.cancelButton, { color: theme.red }]}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.estadoModalTitle, { color: theme.text }]}>
+                    {modoEdicion ? 'Editar' : 'Estado'}
                   </Text>
-                </View>
-                {modoEdicion && materiaEditando && (
-                  <View style={styles.estadoActualBadgeSmall}>
-                    <Text style={[styles.estadoActualTextSmall, {
-                      color: ESTADOS_MATERIA[materiaEditando.estado].color
-                    }]}>
-                      {ESTADOS_MATERIA[materiaEditando.estado].label}
+                  <TouchableOpacity onPress={guardarMateria} disabled={loadingAction}>
+                    <Text style={[styles.doneButton, { color: theme.blue }, loadingAction && { opacity: 0.5 }]}>
+                      {loadingAction ? '...' : (modoEdicion ? 'Guardar' : 'Agregar')}
                     </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {materiaSeleccionada && (
+                  <View style={[styles.materiaSeleccionadaContainer, { backgroundColor: theme.background }]}>
+                    <View style={styles.materiaSeleccionadaInfo}>
+                      <Text style={[styles.materiaSeleccionadaNombre, { color: theme.text }]}>{materiaSeleccionada.nombre}</Text>
+                      <Text style={[styles.materiaSeleccionadaNivel, { color: theme.icon }]}>
+                        Nivel {materiaSeleccionada.nivel || 'N/A'} • #{materiaSeleccionada.numero || 'N/A'}
+                      </Text>
+                    </View>
                   </View>
                 )}
-              </View>
-            )}
 
-
-            <ScrollView
-              style={styles.estadoOptionsScrollView}
-              contentContainerStyle={styles.estadoOptionsContent}
-              showsVerticalScrollIndicator={false}
-            >
-              <Text style={styles.estadoOptionsTitle}>Estado de la materia:</Text>
-              {Object.entries(ESTADOS_MATERIA).map(([key, info]) => (
-                <TouchableOpacity
-                  key={key}
-                  style={[
-                    styles.estadoOption,
-                    estadoSeleccionado === key && styles.estadoOptionSelected
-                  ]}
-                  onPress={() => setEstadoSeleccionado(key as keyof typeof ESTADOS_MATERIA)}
-                  disabled={loadingAction}
+                <ScrollView
+                  style={styles.estadoOptionsScrollView}
+                  contentContainerStyle={styles.estadoOptionsContent}
+                  showsVerticalScrollIndicator={false}
                 >
-                  <View style={styles.estadoOptionLeft}>
-                    <View style={[styles.estadoDot, { backgroundColor: info.color }]} />
-                    <Text style={[
-                      styles.estadoOptionText,
-                      estadoSeleccionado === key && styles.estadoOptionTextSelected
-                    ]}>
-                      {info.label}
-                    </Text>
+                  <Text style={[styles.modalSectionHeader, { color: theme.icon }]}>SELECCIONAR ESTADO</Text>
+                  <View style={[styles.formGroup, { backgroundColor: theme.background }]}>
+                    {Object.entries(ESTADOS_MATERIA).map(([key, info], index, arr) => (
+                      <TouchableOpacity
+                        key={key}
+                        style={[
+                          styles.inputRow,
+                          { borderBottomColor: theme.separator, borderBottomWidth: index === arr.length - 1 ? 0 : StyleSheet.hairlineWidth }
+                        ]}
+                        onPress={() => setEstadoSeleccionado(key as EstadoMateriaKey)}
+                        disabled={loadingAction}
+                      >
+                        <View style={styles.estadoOptionLeft}>
+                          <View style={[styles.estadoDot, { backgroundColor: info.color }]} />
+                          <Text style={[
+                            styles.estadoOptionText,
+                            { color: theme.text },
+                            estadoSeleccionado === key && { fontWeight: '600' }
+                          ]}>
+                            {info.label}
+                          </Text>
+                        </View>
+                        {estadoSeleccionado === key && (
+                          <Ionicons name="checkmark" size={20} color={theme.blue} />
+                        )}
+                      </TouchableOpacity>
+                    ))}
                   </View>
-                  {estadoSeleccionado === key && (
-                    <Ionicons name="checkmark" size={20} color="#007AFF" />
+
+                  {estadoSeleccionado === 'cursado' && (
+                    <>
+                      <Text style={[styles.modalSectionHeader, { color: theme.icon, marginTop: 10 }]}>HORARIO DE CURSADA</Text>
+                      <View style={[styles.formGroup, { backgroundColor: theme.background }]}>
+                        {/* DÍA */}
+                        <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                          <Text style={[styles.inputLabel, { color: theme.text }]}>Día</Text>
+                          <View style={styles.daysContainer}>
+                            {['LU', 'MA', 'MI', 'JU', 'VI', 'SA'].map((d) => (
+                              <TouchableOpacity
+                                key={d}
+                                onPress={() => setDia(d)}
+                                style={[
+                                  styles.dayOption,
+                                  { backgroundColor: dia === d ? theme.blue : theme.backgroundSecondary }
+                                ]}
+                              >
+                                <Text style={[styles.dayOptionText, { color: dia === d ? '#fff' : theme.text }]}>{d}</Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        </View>
+
+                        {/* HORA INICIO */}
+                        <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                          <Text style={[styles.inputLabel, { color: theme.text }]}>Hora Inicio</Text>
+                          <TextInput
+                            style={[styles.textInput, { color: theme.text }]}
+                            value={horaInicio}
+                            onChangeText={setHoraInicio}
+                            placeholder="Ej: 17:00 hs"
+                            placeholderTextColor={theme.icon}
+                          />
+                        </View>
+
+                        {/* HORA FIN */}
+                        <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                          <Text style={[styles.inputLabel, { color: theme.text }]}>Hora Fin</Text>
+                          <TextInput
+                            style={[styles.textInput, { color: theme.text }]}
+                            value={horaFin}
+                            onChangeText={setHoraFin}
+                            placeholder="Ej: 21:00 hs"
+                            placeholderTextColor={theme.icon}
+                          />
+                        </View>
+
+                        {/* AULA */}
+                        <View style={styles.inputRow}>
+                          <Text style={[styles.inputLabel, { color: theme.text }]}>Aula</Text>
+                          <TextInput
+                            style={[styles.textInput, { color: theme.text }]}
+                            value={aula}
+                            onChangeText={setAula}
+                            placeholder="Ej: 304 o Zoom"
+                            placeholderTextColor={theme.icon}
+                          />
+                        </View>
+                      </View>
+                    </>
                   )}
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                </ScrollView>
+                <View style={{ height: 30 }} />
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {loadingAction && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#007AFF" />
+        <View style={[styles.loadingOverlay, { backgroundColor: 'rgba(0,0,0,0.3)' }]}>
+          <ActivityIndicator size="large" color={theme.tint} />
         </View>
       )}
     </View>
@@ -434,415 +578,135 @@ function MisMateriasScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F6F9' },
-
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F4F6F9'
-  },
-
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#666'
-  },
+  container: { flex: 1 },
+  safeArea: { flex: 1 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 10, fontSize: 16 },
 
   header: {
-    paddingTop: Platform.OS === 'android' ? 40 : 20,
-    paddingBottom: 15,
-    paddingHorizontal: 20,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 20, paddingVertical: 15,
   },
-
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between'
+  backButton: {
+    width: 40, height: 40, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
   },
-
-  headerTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold'
-  },
+  headerTitle: { fontSize: 18, fontWeight: '700' },
 
   scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 50 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 50 },
 
   section: { marginBottom: 30 },
-
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 15, paddingHorizontal: 5
   },
+  sectionTitle: { fontSize: 12, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' },
 
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#8898AA',
-    letterSpacing: 1
-  },
-
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    shadowColor: "#007AFF",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3
-  },
-
-  addButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20
-  },
-
-  addButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 4
-  },
-
-  emptyState: {
-    alignItems: 'center',
-    padding: 40,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    marginTop: 10
-  },
-
-  emptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 10
-  },
-
-  emptySubtext: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 5,
-    textAlign: 'center'
-  },
-
-  materiaCardContainer: {
-    position: 'relative',
-    marginBottom: 10
-  },
-
+  // CARD - iOS Style
   materiaCard: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#f0f0f0'
+    borderRadius: 16, flexDirection: 'row', marginBottom: 12,
+    overflow: 'hidden', elevation: 2, shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5
   },
+  cardLeftStrip: { width: 6, height: '100%' },
+  cardMainContent: { flex: 1, padding: 16 },
+  cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  tagContainer: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  tagText: { fontSize: 10, fontWeight: '800' },
+  materiaNombre: { fontSize: 17, fontWeight: '700', marginBottom: 6 },
+  cardFooter: { flexDirection: 'row' },
+  metaItem: { flexDirection: 'row', alignItems: 'center', marginRight: 15 },
+  materiaNivel: { fontSize: 12, marginLeft: 4, fontWeight: '500' },
+  chevronContainer: { paddingRight: 12, justifyContent: 'center' },
 
-  deleteButtonOverlay: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: '#FF444420',
-    borderRadius: 12,
-    padding: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
-  },
-
-  materiaInfo: { marginBottom: 8 },
-
-  materiaNombre: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2
-  },
-
-  materiaNivel: {
-    fontSize: 11,
-    color: '#666'
-  },
-
-  materiaActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10
-  },
-
-  estadoBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 18,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
-  },
-
-  estadoText: {
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center'
-  },
-
-  actionButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8
-  },
-
-  estadoButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginRight: 6
-  },
-
-  estadoButtonText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '600'
-  },
-
-  deleteButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#FF444420'
-  },
-
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end'
-  },
-
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '70%',
-    minHeight: '50%'
-  },
-
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee'
-  },
-
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333'
-  },
-
-  modalSubtitle: {
-    fontSize: 14,
-    color: '#666',
-    padding: 20,
-    paddingTop: 0
-  },
-
-  modalList: {
-    paddingHorizontal: 20
-  },
-
+  // DISPONIBLE CARD
   disponibleCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 2,
-    elevation: 1
+    flexDirection: 'row', alignItems: 'center', borderRadius: 14,
+    padding: 16, marginBottom: 10, elevation: 1, shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 3
   },
-
   disponibleInfo: { flex: 1 },
+  disponibleNombre: { fontSize: 16, fontWeight: '600', marginBottom: 2 },
+  disponibleNivel: { fontSize: 13 },
 
-  disponibleNombre: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2
+  // EMPTY
+  emptyState: {
+    alignItems: 'center', padding: 40, borderRadius: 20, marginTop: 10
   },
+  emptyText: { fontSize: 18, fontWeight: '700', marginTop: 15 },
+  emptySubtext: { fontSize: 14, marginTop: 5, textAlign: 'center', width: '80%', opacity: 0.7 },
 
-  disponibleNivel: {
-    fontSize: 12,
-    color: '#666'
+  // MODAL - iOS Style
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: {
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 30,
+    maxHeight: '85%', minHeight: '50%'
   },
-
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255,255,255,0.8)',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-
-  // Estilos para la segunda modal (seleccionar estado)
   estadoModalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '60%',
-    minHeight: '40%'
+    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 30,
+    height: '95%', // Forzar altura para ocupar casi toda la pantalla
   },
+  modalHandle: {
+    width: 40, height: 5, borderRadius: 3,
+    alignSelf: 'center', marginBottom: 15, marginTop: 5
+  },
+  modalHeaderStyle: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15
+  },
+  modalTitle: { fontSize: 22, fontWeight: '800' },
+  modalSubtitle: { fontSize: 14, marginBottom: 20, paddingHorizontal: 5 },
+  modalList: { flex: 1 },
 
+  // Estado Modal Specific
   estadoModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5'
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 20, paddingTop: 5
   },
-
-  estadoModalTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#333'
-  },
-
-  cancelButton: {
-    fontSize: 17,
-    color: '#007AFF',
-    padding: 8
-  },
-
-  doneButton: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: '#007AFF',
-    padding: 8
-  },
+  estadoModalTitle: { fontSize: 17, fontWeight: '700' },
+  cancelButton: { fontSize: 17 },
+  doneButton: { fontSize: 17, fontWeight: '600' },
 
   materiaSeleccionadaContainer: {
-    padding: 12,
-    backgroundColor: '#f8f9fa',
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between'
+    padding: 16, borderRadius: 14, marginBottom: 25,
+    flexDirection: 'row', alignItems: 'center'
   },
+  materiaSeleccionadaInfo: { flex: 1 },
+  materiaSeleccionadaNombre: { fontSize: 16, fontWeight: '700', marginBottom: 2 },
+  materiaSeleccionadaNivel: { fontSize: 13 },
 
-  materiaSeleccionadaInfo: {
-    flex: 1
+  estadoOptionsScrollView: { flex: 1 },
+  estadoOptionsContent: { paddingBottom: 10 },
+  modalSectionHeader: { fontSize: 12, fontWeight: '600', marginBottom: 10, marginLeft: 5, textTransform: 'uppercase' },
+
+  // iOS-like Form Group
+  formGroup: { borderRadius: 12, overflow: 'hidden', marginBottom: 25 },
+  inputRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, height: 50,
   },
+  estadoOptionLeft: { flexDirection: 'row', alignItems: 'center' },
+  estadoDot: { width: 12, height: 12, borderRadius: 6, marginRight: 12 },
+  estadoOptionText: { fontSize: 17 },
 
-  materiaSeleccionadaNombre: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2
+  inputLabel: { fontSize: 17, minWidth: 100 },
+  textInput: { flex: 1, fontSize: 17, textAlign: 'right' },
+  daysContainer: { flexDirection: 'row', flex: 1, justifyContent: 'flex-end' },
+  dayOption: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginLeft: 4 },
+  dayOptionText: { fontSize: 13, fontWeight: '600' },
+
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center', alignItems: 'center', zIndex: 999
   },
-
-  materiaSeleccionadaNivel: {
-    fontSize: 12,
-    color: '#666'
+  scheduleBadge: {
+    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start',
+    marginTop: 8, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(0,122,255,0.2)'
   },
-
-  estadoActualBadgeSmall: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.05)'
-  },
-
-  estadoActualTextSmall: {
-    fontSize: 11,
-    fontWeight: '600'
-  },
-
-
-
-  estadoOptionsScrollView: {
-    maxHeight: 280, // Altura aumentada para mostrar más opciones sin scroll
-  },
-
-  estadoOptionsContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 20
-  },
-
-  estadoOptionsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 16
-  },
-
-  estadoOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 4,
-    borderRadius: 12,
-    marginBottom: 4
-  },
-
-  estadoOptionSelected: {
-    backgroundColor: '#007AFF15'
-  },
-
-  estadoOptionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-
-  estadoDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 12
-  },
-
-  estadoOptionText: {
-    fontSize: 17,
-    color: '#333'
-  },
-
-  estadoOptionTextSelected: {
-    fontWeight: '600',
-    color: '#007AFF'
-  },
-
+  scheduleText: { fontSize: 11, fontWeight: '600', marginLeft: 4 },
 });
 
 export default MisMateriasScreen;

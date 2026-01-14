@@ -25,6 +25,18 @@ export class UsuarioMateria {
     })
     estado!: EstadoMateriaUsuario;
 
+    @Column({ name: 'dia', type: 'varchar', length: 10, nullable: true })
+    dia?: string;
+
+    @Column({ name: 'hora', type: 'int', nullable: true })
+    hora?: number;
+
+    @Column({ name: 'duracion', type: 'int', nullable: true, default: 2 })
+    duracion?: number;
+
+    @Column({ name: 'aula', type: 'varchar', length: 50, nullable: true })
+    aula?: string;
+
     @CreateDateColumn({ name: 'created_at' })
     createdAt!: Date;
 
