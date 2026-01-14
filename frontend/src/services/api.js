@@ -6,17 +6,16 @@ import { supabase } from '../config/supabase';
 // - Web/Desktop: 'http://localhost:4000'
 // - Android Emulator: 'http://10.0.2.2:4000'
 // - iOS Simulator: 'http://localhost:4000'
-// - Dispositivo físico: 'http://192.168.0.21:4000' (tu IP local actual)
+// - Dispositivo físico: 'http://192.168.0.20:4000' (tu IP local actual)
 
 // Detección automática del entorno
 let API_URL = 'http://localhost:4000';
 
 if (Platform.OS === 'android') {
-    API_URL = 'http://10.0.2.2:4000';
+    // Si usas emulador, 10.0.2.2 es lo ideal. Si usas celular físico, cambia a la IP .20
+    API_URL = 'http://192.168.0.20:4000';
 } else if (Platform.OS === 'ios') {
-    // Para iOS, si no es simulador, necesitamos la IP local. 
-    // Por defecto usamos la IP detectada para asegurar que el celular físico conecte.
-    API_URL = 'http://192.168.0.21:4000';
+    API_URL = 'http://192.168.0.20:4000';
 }
 
 // Permitir override por variables de entorno de Expo
@@ -25,12 +24,13 @@ if (process.env.EXPO_PUBLIC_API_URL) {
 }
 
 // Si necesitas forzar la IP para tu celular físico sin tocar envs, puedes hacerlo aquí:
-// API_URL = 'http://192.168.0.21:4000'; 
+// API_URL = 'http://192.168.0.20:4000'; 
 
 console.log('API_URL configurada para:', Platform.OS, '->', API_URL);
 
 export const api = axios.create({
     baseURL: API_URL,
+    timeout: 10000,
     headers: {
         'Content-Type': 'application/json',
     },

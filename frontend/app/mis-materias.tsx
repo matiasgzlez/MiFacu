@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import { ActivityIndicator, Alert, Dimensions, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View, FlatList } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../src/services/api';
+import { materiasApi as api } from '../src/services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -86,16 +86,11 @@ function MisMateriasScreen() {
     try {
       const data = await api.getMateriasByUsuario(userId);
       // Ordenar por número de materia como respaldo
-      const sortedData = data.sort((a, b) => (a.materia.numero || 0) - (b.materia.numero || 0));
+      const sortedData = data.sort((a: any, b: any) => (a.materia.numero || 0) - (b.materia.numero || 0));
       setMisMaterias(sortedData);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error cargando mis materias:', error);
-      // Si es error 404, significa que no hay materias aún, lo cual es normal
-      if (error.message?.includes('404')) {
-        setMisMaterias([]);
-      } else {
-        throw error;
-      }
+      throw error;
     }
   };
 
@@ -103,7 +98,7 @@ function MisMateriasScreen() {
     try {
       const data = await api.getMateriasDisponibles(userId);
       setMateriasDisponibles(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error cargando materias disponibles:', error);
       throw error;
     }
@@ -117,7 +112,6 @@ function MisMateriasScreen() {
     setEstadoModalVisible(true); // Abrir segunda modal
   };
 
-
   const guardarMateria = async () => {
     if (!materiaSeleccionada) return;
 
@@ -130,7 +124,7 @@ function MisMateriasScreen() {
         Alert.alert('¡Éxito!', 'Estado de materia actualizado correctamente');
       } else {
         // Modo agregar: crear nueva materia
-        await api.addMateriaToUsuario(usuarioId, materiaSeleccionada.id, estadoSeleccionado);
+        await api.addMateriaToUsuario(usuarioId, materiaSeleccionada.id, estadoSeleccionado as any);
         Alert.alert('¡Éxito!', 'Materia agregada correctamente');
       }
 
@@ -141,7 +135,7 @@ function MisMateriasScreen() {
       setModoEdicion(false);
 
       await cargarDatos(); // Recargar datos
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error guardando materia:', error);
       Alert.alert('Error', error.message || 'No se pudo guardar la materia');
     } finally {
@@ -149,15 +143,14 @@ function MisMateriasScreen() {
     }
   };
 
-
   const cambiarEstado = async (materiaId: number, nuevoEstado: keyof typeof ESTADOS_MATERIA) => {
     try {
       setLoadingAction(true);
       await api.updateEstadoMateria(usuarioId, materiaId, nuevoEstado);
       await cargarDatos(); // Recargar datos
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error cambiando estado:', error);
-      Alert.alert('Error', 'No se pudo cambiar el estado de la materia');
+      Alert.alert('Error', error.message || 'No se pudo cambiar el estado de la materia');
     } finally {
       setLoadingAction(false);
     }
@@ -178,9 +171,9 @@ function MisMateriasScreen() {
               await api.removeMateriaFromUsuario(usuarioId, materiaId);
               Alert.alert('¡Éxito!', 'Materia eliminada correctamente');
               await cargarDatos(); // Recargar datos
-            } catch (error) {
+            } catch (error: any) {
               console.error('Error eliminando materia:', error);
-              Alert.alert('Error', 'No se pudo eliminar la materia');
+              Alert.alert('Error', error.message || 'No se pudo eliminar la materia');
             } finally {
               setLoadingAction(false);
             }
@@ -268,7 +261,7 @@ function MisMateriasScreen() {
 
       {/* HEADER */}
       <LinearGradient colors={['#2E5EC9', '#4675D9']} style={styles.header}>
-        <SafeAreaView style={{width: '100%'}}>
+        <SafeAreaView style={{ width: '100%' }}>
           <View style={styles.headerContent}>
             <TouchableOpacity onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={24} color="#fff" />
