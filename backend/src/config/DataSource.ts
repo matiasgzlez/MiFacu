@@ -4,6 +4,7 @@ import { Materia } from "../models/materias.model";
 import { Recordatorio } from "../models/recordatorios.model";
 import { Final } from "../models/finales.model";
 import { UsuarioMateria } from "../models/usuario-materias.model";
+import { User } from "../models/user.model";
 
 dotenv.config();
 
@@ -13,7 +14,7 @@ export const AppDataSource = new DataSource({
     synchronize: true, // Activado temporalmente para crear tablas nuevas
     // Usa migraciones o el script de seed para actualizar el esquema
     logging: process.env.NODE_ENV === 'development',
-    entities: [Materia, Recordatorio, Final, UsuarioMateria],
+    entities: [Materia, Recordatorio, Final, UsuarioMateria, User],
     extra: {
         ssl: {
             rejectUnauthorized: false // Requerido para la conexión con Supabase
