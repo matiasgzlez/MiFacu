@@ -12,7 +12,8 @@ export const DataRepository = {
             // API call
             try {
                 const response = await api.get('/recordatorios');
-                return response.data;
+                // Backend returns { status: 'success', data: [...] }
+                return response.data.data;
             } catch (error) {
                 console.error("Error fetching recordatorios:", error);
                 return [];
@@ -31,7 +32,7 @@ export const DataRepository = {
         } else {
             try {
                 const response = await api.post('/recordatorios', data);
-                return response.data;
+                return response.data.data || response.data;
             } catch (error) {
                 console.error("Error creating recordatorio:", error);
                 throw error;
@@ -60,7 +61,7 @@ export const DataRepository = {
         } else {
             try {
                 const response = await api.get('/finales');
-                return response.data;
+                return response.data.data;
             } catch (error) {
                 console.error("Error fetching finales:", error);
                 return [];
@@ -78,7 +79,7 @@ export const DataRepository = {
         } else {
             try {
                 const response = await api.post('/finales', data);
-                return response.data;
+                return response.data.data || response.data;
             } catch (error) {
                 console.error("Error creating final:", error);
                 throw error;

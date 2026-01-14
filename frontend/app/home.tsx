@@ -35,7 +35,6 @@ export default function HomeScreen() {
   const { user, isGuest } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
-  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [carreraProgreso, setCarreraProgreso] = useState(0);
 
@@ -79,7 +78,8 @@ export default function HomeScreen() {
 
       // Cargar Recordatorios (Quick Tasks)
       const recordatorios = await DataRepository.getRecordatorios(isGuest);
-      setTasks(recordatorios || []);
+      console.log("Recordatorios loaded:", recordatorios); // DEBUG
+      setTasks(Array.isArray(recordatorios) ? recordatorios : []);
 
       if (userId) {
         // 1. Obtener materias del usuario
@@ -124,9 +124,10 @@ export default function HomeScreen() {
     try {
       setAddingTask(true);
       const taskData = {
-        nombre: newTask.trim(), // Backend requires 'nombre'
+        nombre: newTask.trim(),
         descripcion: 'Tarea Rápida',
-        fecha: new Date().toISOString(),
+        fecha: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+        hora: `${new Date().getHours().toString().padStart(2, '0')}:${new Date().getMinutes().toString().padStart(2, '0')}`,
         tipo: 'quick_task'
       };
 
@@ -217,23 +218,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* BARRA DE BÚSQUEDA (Sticky en iOS) */}
-        <View style={[styles.searchContainer, { backgroundColor }]}>
-          <View style={[styles.searchBar, { backgroundColor: theme.backgroundSecondary }]}>
-            <Ionicons name="search" size={18} color={theme.icon} style={{ marginLeft: 10 }} />
-            <TextInput
-              placeholder="Buscar materias, finales..."
-              placeholderTextColor={theme.icon}
-              style={[styles.searchInput, { color: theme.text }]}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={18} color={theme.icon} style={{ marginRight: 10 }} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+
 
         {/* WIDGET: PRÓXIMO PASO */}
         <View style={styles.section}>
