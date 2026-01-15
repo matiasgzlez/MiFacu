@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { getMaterias } from '../src/data/db';
 
 // Interfaces
@@ -37,7 +38,7 @@ export default function PlanEstudiosScreen() {
   };
 
   const getColor = (estado: string) => {
-    switch(estado) {
+    switch (estado) {
       case 'aprobada': return '#4CAF50';
       case 'cursando': return '#2196F3';
       case 'regularizada': return '#FF9800';
@@ -65,7 +66,7 @@ export default function PlanEstudiosScreen() {
               <Ionicons name="arrow-back" size={28} color="#fff" />
             </TouchableOpacity>
             <Text style={styles.title}>Mis Materias</Text>
-            <View style={{width: 28}} />
+            <View style={{ width: 28 }} />
           </View>
         </SafeAreaView>
       </View>
@@ -94,7 +95,7 @@ export default function PlanEstudiosScreen() {
             <Ionicons name="chevron-forward" size={24} color="#999" />
           </TouchableOpacity>
         ))}
-        <View style={{height: 50}} />
+        <View style={{ height: 50 }} />
       </ScrollView>
     </View>
   );

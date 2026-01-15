@@ -6,7 +6,6 @@ import {
   Alert,
   Dimensions,
   Modal,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -20,6 +19,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../src/constants/theme';
 import { DataRepository } from '../src/services/dataRepository';
 import { useAuth } from '../src/context/AuthContext';

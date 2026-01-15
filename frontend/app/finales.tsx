@@ -2,7 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 // import * as Notifications from 'expo-notifications'; (Removed)
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Dimensions, Modal, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, Modal, Platform, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const CARD_MARGIN = 15;
@@ -26,7 +27,7 @@ export default function FinalesScreen() {
   const router = useRouter();
   const { isGuest } = useAuth();
 
-  const [examenes, setExamenes] = useState<any[]>([]);
+  const [examenes, setExamenes] = useState<{ id: any, materia: string, fecha: string, hora: string, color: string }[]>([]);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [nuevaMateria, setNuevaMateria] = useState('');
@@ -81,10 +82,10 @@ export default function FinalesScreen() {
   };
 
   const getExamenesOrdenados = () => {
-    return [...examenes].sort((a, b) => parseDate(a.fecha) - parseDate(b.fecha));
+    return [...examenes].sort((a, b) => parseDate(a.fecha).getTime() - parseDate(b.fecha).getTime());
   };
 
-  const confirmarEliminacion = (id) => {
+  const confirmarEliminacion = (id: any) => {
     Alert.alert(
       "¿Borrar Mesa?",
       "Se eliminará de tu lista.",
@@ -106,14 +107,14 @@ export default function FinalesScreen() {
   // (Simplified for now as backend update is not implemented)
   // Notifications logic removed
 
-  const handleChangeFecha = (text) => {
+  const handleChangeFecha = (text: string) => {
     let limpio = text.replace(/[^0-9]/g, '');
     if (text.length < nuevaFecha.length && nuevaFecha.endsWith('/')) limpio = limpio.slice(0, -1);
     if (limpio.length > 2) limpio = limpio.slice(0, 2) + '/' + limpio.slice(2, 4);
     setNuevaFecha(limpio);
   };
 
-  const handleChangeHora = (text) => {
+  const handleChangeHora = (text: string) => {
     let limpio = text.replace(/[^0-9]/g, '');
     if (limpio.length > 2) limpio = limpio.slice(0, 2) + ':' + limpio.slice(2, 4);
     setNuevaHora(limpio);

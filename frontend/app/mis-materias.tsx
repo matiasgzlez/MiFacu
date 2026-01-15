@@ -7,7 +7,6 @@ import {
   Dimensions,
   Modal,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -19,6 +18,7 @@ import {
   TouchableWithoutFeedback,
   TextInput
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export type EstadoMateriaKey = 'no_cursado' | 'cursado' | 'regular' | 'aprobado';
 import AsyncStorage from '@react-native-async-storage/async-storage';

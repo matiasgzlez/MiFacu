@@ -4,7 +4,6 @@ import React, { useState, useCallback, useRef } from 'react';
 import {
   Dimensions,
   Image,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   Text,
@@ -21,6 +20,7 @@ import {
   Keyboard,
   Animated
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../src/constants/theme';
 import { useThemeColor } from '../src/hooks/use-theme-color';
@@ -127,7 +127,7 @@ export default function HomeScreen() {
         nombre: newTask.trim(),
         descripcion: 'Tarea Rápida',
         fecha: new Date().toISOString().split('T')[0], // YYYY-MM-DD
-        hora: `${new Date().getHours().toString().padStart(2, '0')}:${new Date().getMinutes().toString().padStart(2, '0')}`,
+        hora: `${new Date().getHours().toString().padStart(2, '0')}:${new Date().getMinutes().toString().padStart(2, '0')} `,
         tipo: 'quick_task'
       };
 

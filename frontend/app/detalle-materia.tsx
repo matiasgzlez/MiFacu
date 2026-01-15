@@ -1,17 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { getMateriaById, updateMateria } from '../src/data/db'; // Importamos DB
+
+interface Materia {
+  id: number;
+  nombre: string;
+  nivel: number;
+  estado: string;
+  dia?: string;
+  hora?: number;
+  aula?: string;
+}
 
 export default function DetalleMateriaScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { id } = params; // Ahora buscamos por ID
+  const { id } = params as { id: string };
 
-  const [materia, setMateria] = useState(null);
+  const [materia, setMateria] = useState<Materia | null>(null);
   const [editMode, setEditMode] = useState(false);
-  
+
   // Estados para edición
   const [nuevoDia, setNuevoDia] = useState('');
   const [nuevaHora, setNuevaHora] = useState('');
@@ -44,7 +55,9 @@ export default function DetalleMateriaScreen() {
     });
 
     // Actualizar vista local
-    setMateria({ ...materia, dia: nuevoDia.toUpperCase(), hora: horaNum, aula: nuevaAula });
+    if (materia) {
+      setMateria({ ...materia, dia: nuevoDia.toUpperCase(), hora: horaNum, aula: nuevaAula });
+    }
     setEditMode(false);
     Alert.alert("¡Horario Actualizado!", "Se reflejará en tu agenda.");
   };
@@ -56,7 +69,7 @@ export default function DetalleMateriaScreen() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colorTema} />
-      
+
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: colorTema }]}>
         <SafeAreaView>
@@ -65,7 +78,7 @@ export default function DetalleMateriaScreen() {
               <Ionicons name="arrow-back" size={28} color="#fff" />
             </TouchableOpacity>
             <Text style={styles.topTitle}>Ficha Académica</Text>
-            
+
             {/* Botón Editar / Guardar */}
             <TouchableOpacity onPress={() => editMode ? handleGuardar() : setEditMode(true)}>
               <Ionicons name={editMode ? "checkmark-circle" : "create-outline"} size={28} color="#fff" />
@@ -82,7 +95,7 @@ export default function DetalleMateriaScreen() {
       </View>
 
       <ScrollView style={styles.content}>
-        
+
         {/* Tarjeta de Cursada (EDITABLE) */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>
@@ -165,7 +178,7 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 15 },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   rowText: { marginLeft: 10, fontSize: 14, color: '#444' },
-  
+
   // Estilos de Edición
   editRow: { flex: 1, flexDirection: 'row', alignItems: 'center', marginLeft: 10 },
   label: { fontSize: 12, color: '#666', marginRight: 10 },
