@@ -13,15 +13,16 @@ export class FinalesService {
         this.materiasService = new MateriasService();
     }
 
-    async getAllFinales(): Promise<Final[]> {
+    async getAllFinales(userId: string): Promise<Final[]> {
         return await this.finalRepository.find({
+            where: { userId },
             relations: ['materia'],
         });
     }
 
-    async getFinalById(id: number): Promise<Final> {
+    async getFinalById(id: number, userId: string): Promise<Final> {
         const final = await this.finalRepository.findOne({
-            where: { id },
+            where: { id, userId },
             relations: ['materia'],
         });
 
@@ -37,7 +38,7 @@ export class FinalesService {
         fecha: Date;
         hora: string;
         color: string;
-    }): Promise<Final> {
+    }, userId: string): Promise<Final> {
         const { materiaNombre, fecha, hora, color } = data;
 
         const materia = await this.materiasService.findOrCreateMateria(materiaNombre);
@@ -49,13 +50,14 @@ export class FinalesService {
             color,
             notificado: false,
             materia,
+            userId // Asignar el ID del usuario
         });
 
         return await this.finalRepository.save(final);
     }
 
-    async deleteFinal(id: number): Promise<void> {
-        const final = await this.getFinalById(id);
+    async deleteFinal(id: number, userId: string): Promise<void> {
+        const final = await this.getFinalById(id, userId);
         await this.finalRepository.remove(final);
     }
 
@@ -66,9 +68,10 @@ export class FinalesService {
             hora: string;
             color: string;
             notificado: boolean;
-        }>
+        }>,
+        userId: string
     ): Promise<Final> {
-        const final = await this.getFinalById(id);
+        const final = await this.getFinalById(id, userId);
 
         Object.assign(final, data);
 

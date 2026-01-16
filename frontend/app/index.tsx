@@ -2,10 +2,10 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, Alert, TextInput, ActivityIndicator } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '../src/config/supabase';
 import { useAuth } from '../src/context/AuthContext';
 import { DataRepository } from '../src/services/dataRepository';
+import GoogleSignInButton from '../src/components/GoogleSignInButton';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -66,37 +66,6 @@ export default function LoginScreen() {
     }
   };
 
-  // Mantengo la opción de Google por si acaso, pero oculta/secundaria si falla
-  const handleGoogleLogin = async () => {
-    try {
-      const redirectUrl = makeRedirectUri({
-        scheme: 'mifacumobile',
-        path: 'auth/callback',
-      });
-      // Removed the alert to clean up UI
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectUrl,
-          skipBrowserRedirect: true,
-        },
-      });
-
-      if (error) throw error;
-      if (!data?.url) throw new Error('No Oauth URL returned');
-
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
-
-      if (result.type === 'success' && result.url) {
-        // Extract params logic here if needed, but normally Supabase handles session via URL listener
-        // But in manual flow we might need to parse hash.
-        // For now, focusing on Email/Pass as the primary fix.
-      }
-    } catch (error: any) {
-      Alert.alert("Google Login Error", error.message);
-    }
-  };
-
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>MiFacu 🚀</Text>
@@ -138,9 +107,7 @@ export default function LoginScreen() {
 
       <Text style={styles.orText}>— O —</Text>
 
-      <TouchableOpacity style={styles.googleButton} onPress={handleGoogleLogin}>
-        <Text style={styles.googleText}>Google (Experimental)</Text>
-      </TouchableOpacity>
+      <GoogleSignInButton />
 
       <TouchableOpacity onPress={signInAsGuest} style={styles.guestButton}>
         <Text style={styles.guestText}>Ingresar como Invitado (Offline)</Text>

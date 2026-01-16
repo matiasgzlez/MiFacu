@@ -13,13 +13,14 @@ export class UsuarioMateriasController {
 
     // Obtener todas las materias de un usuario
     getMateriasByUsuario = asyncHandler(async (req: Request, res: Response) => {
-        const { usuarioId } = req.params;
+        // Priorizar el ID del token (si está autenticado)
+        const userId = req.user?.id || req.params.usuarioId;
 
-        if (!usuarioId) {
+        if (!userId) {
             throw new AppError('usuarioId es requerido', 400);
         }
 
-        const usuarioMaterias = await this.usuarioMateriasService.getMateriasByUsuario(usuarioId);
+        const usuarioMaterias = await this.usuarioMateriasService.getMateriasByUsuario(userId);
 
         res.status(200).json({
             status: 'success',
@@ -29,10 +30,10 @@ export class UsuarioMateriasController {
 
     // Agregar una materia a un usuario
     addMateriaToUsuario = asyncHandler(async (req: Request, res: Response) => {
-        const { usuarioId } = req.params;
+        const userId = req.user?.id || req.params.usuarioId;
         const { materiaId, estado, dia, hora, duracion, aula } = req.body;
 
-        if (!usuarioId) {
+        if (!userId) {
             throw new AppError('usuarioId es requerido', 400);
         }
 
@@ -46,7 +47,7 @@ export class UsuarioMateriasController {
         }
 
         const usuarioMateria = await this.usuarioMateriasService.addMateriaToUsuario(
-            usuarioId,
+            userId,
             materiaId,
             estado || EstadoMateriaUsuario.NoCursado,
             { dia, hora, duracion, aula }
@@ -61,10 +62,11 @@ export class UsuarioMateriasController {
 
     // Actualizar estado de una materia
     updateEstadoMateria = asyncHandler(async (req: Request, res: Response) => {
-        const { usuarioId, materiaId } = req.params;
+        const userId = req.user?.id || req.params.usuarioId;
+        const { materiaId } = req.params;
         const { estado, dia, hora, duracion, aula } = req.body;
 
-        if (!usuarioId) {
+        if (!userId) {
             throw new AppError('usuarioId es requerido', 400);
         }
 
@@ -77,7 +79,7 @@ export class UsuarioMateriasController {
         }
 
         const usuarioMateria = await this.usuarioMateriasService.updateEstadoMateria(
-            usuarioId,
+            userId,
             parseInt(materiaId),
             estado,
             { dia, hora, duracion, aula }
@@ -92,9 +94,10 @@ export class UsuarioMateriasController {
 
     // Eliminar una materia del usuario
     removeMateriaFromUsuario = asyncHandler(async (req: Request, res: Response) => {
-        const { usuarioId, materiaId } = req.params;
+        const userId = req.user?.id || req.params.usuarioId;
+        const { materiaId } = req.params;
 
-        if (!usuarioId) {
+        if (!userId) {
             throw new AppError('usuarioId es requerido', 400);
         }
 
@@ -103,7 +106,7 @@ export class UsuarioMateriasController {
         }
 
         await this.usuarioMateriasService.removeMateriaFromUsuario(
-            usuarioId,
+            userId,
             parseInt(materiaId)
         );
 
@@ -115,13 +118,13 @@ export class UsuarioMateriasController {
 
     // Obtener materias disponibles para un usuario
     getMateriasDisponibles = asyncHandler(async (req: Request, res: Response) => {
-        const { usuarioId } = req.params;
+        const userId = req.user?.id || req.params.usuarioId;
 
-        if (!usuarioId) {
+        if (!userId) {
             throw new AppError('usuarioId es requerido', 400);
         }
 
-        const materiasDisponibles = await this.usuarioMateriasService.getMateriasDisponibles(usuarioId);
+        const materiasDisponibles = await this.usuarioMateriasService.getMateriasDisponibles(userId);
 
         res.status(200).json({
             status: 'success',

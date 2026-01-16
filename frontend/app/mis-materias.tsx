@@ -24,6 +24,7 @@ export type EstadoMateriaKey = 'no_cursado' | 'cursado' | 'regular' | 'aprobado'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { materiasApi as api } from '../src/services/api';
 import { Colors } from '../src/constants/theme';
+import { useAuth } from '../src/context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -62,6 +63,7 @@ function MisMateriasScreen() {
   const theme = Colors[colorScheme];
   const ESTADOS_MATERIA = getEstadosMateria(theme);
 
+  const { user, isGuest } = useAuth();
   const [usuarioId, setUsuarioId] = useState<string>('');
   const [misMaterias, setMisMaterias] = useState<UsuarioMateria[]>([]);
   const [materiasDisponibles, setMateriasDisponibles] = useState<Materia[]>([]);
@@ -92,19 +94,20 @@ function MisMateriasScreen() {
       setLoading(true);
 
       // Obtener usuario actual
-      const userId = await AsyncStorage.getItem('usuario_nombre');
-      if (!userId) {
-        Alert.alert('Error', 'No se encontró información del usuario');
+      const userId = user?.id;
+      if (!userId && !isGuest) {
+        Alert.alert('Error', 'No se encontró sesión activa');
         router.replace('/');
         return;
       }
 
-      setUsuarioId(userId);
+      const finalId = userId || 'guest';
+      setUsuarioId(finalId);
 
       // Cargar materias del usuario y disponibles
       await Promise.all([
-        cargarMisMaterias(userId),
-        cargarMateriasDisponibles(userId)
+        cargarMisMaterias(finalId),
+        cargarMateriasDisponibles(finalId)
       ]);
 
     } catch (error) {

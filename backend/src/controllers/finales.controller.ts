@@ -10,7 +10,8 @@ export class FinalesController {
     }
 
     getFinales = asyncHandler(async (req: Request, res: Response) => {
-        const finales = await this.finalesService.getAllFinales();
+        const userId = req.user.id;
+        const finales = await this.finalesService.getAllFinales(userId);
         res.status(200).json({
             status: 'success',
             data: finales,
@@ -19,7 +20,8 @@ export class FinalesController {
 
     getFinal = asyncHandler(async (req: Request, res: Response) => {
         const { id } = req.params;
-        const final = await this.finalesService.getFinalById(parseInt(id));
+        const userId = req.user.id;
+        const final = await this.finalesService.getFinalById(parseInt(id), userId);
         res.status(200).json({
             status: 'success',
             data: final,
@@ -27,7 +29,8 @@ export class FinalesController {
     });
 
     createFinal = asyncHandler(async (req: Request, res: Response) => {
-        const final = await this.finalesService.createFinal(req.body);
+        const userId = req.user.id;
+        const final = await this.finalesService.createFinal(req.body, userId);
         res.status(201).json({
             status: 'success',
             data: final,
@@ -36,7 +39,8 @@ export class FinalesController {
 
     updateFinal = asyncHandler(async (req: Request, res: Response) => {
         const { id } = req.params;
-        const final = await this.finalesService.updateFinal(parseInt(id), req.body);
+        const userId = req.user.id;
+        const final = await this.finalesService.updateFinal(parseInt(id), req.body, userId);
         res.status(200).json({
             status: 'success',
             data: final,
@@ -45,7 +49,8 @@ export class FinalesController {
 
     deleteFinal = asyncHandler(async (req: Request, res: Response) => {
         const { id } = req.params;
-        await this.finalesService.deleteFinal(parseInt(id));
+        const userId = req.user.id;
+        await this.finalesService.deleteFinal(parseInt(id), userId);
         res.status(204).send();
     });
 }

@@ -32,7 +32,7 @@ const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, isGuest } = useAuth();
+  const { user, isGuest, signOut } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
   const [loading, setLoading] = useState(true);
@@ -70,9 +70,9 @@ export default function HomeScreen() {
     try {
       setLoading(true);
 
-      let userId = await AsyncStorage.getItem('usuario_nombre');
+      let userId = null;
 
-      if (!userId && user) {
+      if (user) {
         userId = user.id;
       }
 
@@ -166,6 +166,24 @@ export default function HomeScreen() {
     tipo: "Pendiente"
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      "Cerrar Sesión",
+      "¿Estás seguro de que deseas salir?",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Salir",
+          style: "destructive",
+          onPress: async () => {
+            await signOut();
+            router.replace('/');
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor }]}>
       <StatusBar
@@ -180,14 +198,17 @@ export default function HomeScreen() {
           <View style={styles.headerTop}>
             <View>
               <Text style={[styles.headerLabel, { color: theme.icon }]}>MI PANEL</Text>
-              <Text style={[styles.headerTitle, { color: textColor }]}>Hola, Matías 👋</Text>
+              <Text style={[styles.headerTitle, { color: textColor }]}>
+                Hola, {user?.user_metadata?.full_name?.split(' ')[0] || 'Usuario'} 👋
+              </Text>
             </View>
             <TouchableOpacity
               activeOpacity={0.7}
+              onPress={handleLogout}
               style={[styles.avatarContainer, { borderColor: theme.tint + '40' }]}
             >
               <Image
-                source={{ uri: 'https://i.pravatar.cc/100?img=33' }}
+                source={{ uri: user?.user_metadata?.avatar_url || 'https://i.pravatar.cc/100?img=33' }}
                 style={styles.avatar}
               />
             </TouchableOpacity>

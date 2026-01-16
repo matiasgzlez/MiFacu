@@ -14,15 +14,16 @@ export class RecordatoriosService {
         this.materiasService = new MateriasService();
     }
 
-    async getAllRecordatorios(): Promise<Recordatorio[]> {
+    async getAllRecordatorios(userId: string): Promise<Recordatorio[]> {
         return await this.recordatorioRepository.find({
+            where: { userId },
             relations: ['materia'],
         });
     }
 
-    async getRecordatorioById(id: number): Promise<Recordatorio> {
+    async getRecordatorioById(id: number, userId: string): Promise<Recordatorio> {
         const recordatorio = await this.recordatorioRepository.findOne({
-            where: { id },
+            where: { id, userId },
             relations: ['materia'],
         });
 
@@ -41,8 +42,7 @@ export class RecordatoriosService {
         hora?: string;
         color?: string;
         descripcion?: string;
-        userId?: string; // Add userId validation if needed
-    }): Promise<Recordatorio> {
+    }, userId: string): Promise<Recordatorio> {
         const { nombre, materiaNombre, tipo, fecha, hora, color, descripcion } = data;
 
         let materia = null;
@@ -62,14 +62,15 @@ export class RecordatoriosService {
             color: color || '#FFD700', // Default color for quick tasks
             notificado: false,
             materia: materia,
-            descripcion: descripcion || ''
+            descripcion: descripcion || '',
+            userId // Asignar el ID del usuario
         });
 
         return await this.recordatorioRepository.save(recordatorio);
     }
 
-    async deleteRecordatorio(id: number): Promise<void> {
-        const recordatorio = await this.getRecordatorioById(id);
+    async deleteRecordatorio(id: number, userId: string): Promise<void> {
+        const recordatorio = await this.getRecordatorioById(id, userId);
         await this.recordatorioRepository.remove(recordatorio);
     }
 
@@ -82,9 +83,10 @@ export class RecordatoriosService {
             hora: string;
             color: string;
             notificado: boolean;
-        }>
+        }>,
+        userId: string
     ): Promise<Recordatorio> {
-        const recordatorio = await this.getRecordatorioById(id);
+        const recordatorio = await this.getRecordatorioById(id, userId);
 
         Object.assign(recordatorio, data);
 

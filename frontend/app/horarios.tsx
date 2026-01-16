@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { materiasApi as api } from '../src/services/api';
 import { Colors } from '../src/constants/theme';
+import { useAuth } from '../src/context/AuthContext';
 
 interface UsuarioMateria {
   id: number;
@@ -63,6 +64,7 @@ export default function HorariosScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
   const COLORS = getColors(theme);
+  const { user, isGuest } = useAuth();
   const [materias, setMaterias] = useState<Materia[]>([]);
 
   // --- RECARGA DE DATOS AL ENTRAR ---
@@ -70,7 +72,7 @@ export default function HorariosScreen() {
     useCallback(() => {
       const cargarMaterias = async () => {
         try {
-          const userId = await AsyncStorage.getItem('usuario_nombre');
+          const userId = user?.id || (isGuest ? 'guest' : null);
           if (!userId) return;
 
           const todas = await api.getMateriasByUsuario(userId);

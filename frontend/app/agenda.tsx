@@ -5,6 +5,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { materiasApi as api } from '../src/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../src/context/AuthContext';
 
 // Interfaces
 interface Materia {
@@ -30,6 +31,7 @@ const DIAS_SEMANA: { [key: string]: string } = {
 
 export default function AgendaScreen() {
   const router = useRouter();
+  const { user, isGuest } = useAuth();
   const [materias, setMaterias] = useState<Materia[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,7 +44,7 @@ export default function AgendaScreen() {
   const cargarDatos = async () => {
     try {
       setLoading(true);
-      const userId = await AsyncStorage.getItem('usuario_nombre');
+      const userId = user?.id || (isGuest ? 'guest' : null);
       if (!userId) {
         setLoading(false);
         return;
