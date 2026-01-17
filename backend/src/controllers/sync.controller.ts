@@ -29,42 +29,35 @@ export const syncData = async (req: Request, res: Response) => {
         // Process Recordatorios
         if (recordatorios && Array.isArray(recordatorios)) {
             for (const rec of recordatorios) {
-                // Find materia by name (simplification: assuming name match)
-                // In a real scenario, we might need more complex materia matching logic
-                // or just create if not exists
-                let materia = await materiaRepo.findOneBy({ nombre: rec.materiaNombre });
+                let materia = rec.materiaNombre ? await materiaRepo.findOneBy({ nombre: rec.materiaNombre }) : null;
 
-                if (materia) {
-                    const newRec: any = recordatorioRepo.create({
-                        ...rec,
-                        userId: userId,
-                        materiaId: materia.id,
-                        materia: materia // Important for relations
-                    });
-                    // Remove ID to let DB generate a new one if we are creating new entries
-                    // However, if we want updates, we need a way to track them.
-                    // For this MVP sync, we'll assume we are just pushing local data as new entries if they don't have a remote ID?
-                    // Or simply creating everything. Let's assume creates for now.
-                    delete newRec.id;
-                    await recordatorioRepo.save(newRec);
-                }
+                const newRec: any = recordatorioRepo.create({
+                    ...rec,
+                    userId: userId,
+                    materiaId: materia ? materia.id : null,
+                    materia: materia || null
+                });
+
+                // Limpiar ID local
+                delete newRec.id;
+                await recordatorioRepo.save(newRec);
             }
         }
 
         // Process Finales
         if (finales && Array.isArray(finales)) {
             for (const fin of finales) {
-                let materia = await materiaRepo.findOneBy({ nombre: fin.materiaNombre });
-                if (materia) {
-                    const newFin: any = finalRepo.create({
-                        ...fin,
-                        userId: userId,
-                        materiaId: materia.id,
-                        materia: materia
-                    });
-                    delete newFin.id;
-                    await finalRepo.save(newFin);
-                }
+                let materia = fin.materiaNombre ? await materiaRepo.findOneBy({ nombre: fin.materiaNombre }) : null;
+
+                const newFin: any = finalRepo.create({
+                    ...fin,
+                    userId: userId,
+                    materiaId: materia ? materia.id : null,
+                    materia: materia || null
+                });
+
+                delete newFin.id;
+                await finalRepo.save(newFin);
             }
         }
 

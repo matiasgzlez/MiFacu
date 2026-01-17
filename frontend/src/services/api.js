@@ -9,16 +9,19 @@ import { supabase } from '../config/supabase';
 // - Dispositivo físico: 'http://192.168.0.20:4000' (tu IP local actual)
 
 // Detección automática del entorno
-let API_URL = 'http://localhost:4000';
+let API_URL = 'https://mifacu-backend-production.up.railway.app'; // URL de Railway de Producción
 
-if (Platform.OS === 'android') {
-    // Si usas emulador, 10.0.2.2 es lo ideal. Si usas celular físico, cambia a la IP .20
-    API_URL = 'http://192.168.0.20:4000';
-} else if (Platform.OS === 'ios') {
-    API_URL = 'http://192.168.0.20:4000';
+if (__DEV__) {
+    // En desarrollo, usamos localhost o la IP local para el celular físico
+    API_URL = 'http://localhost:4000';
+
+    if (Platform.OS === 'android' || Platform.OS === 'ios') {
+        // Cambia esta IP por tu IP local si usas celular físico
+        API_URL = 'http://192.168.0.20:4000';
+    }
 }
 
-// Permitir override por variables de entorno de Expo
+// Permitir override por variables de entorno de Expo (útil para TestFlight/Config externa)
 if (process.env.EXPO_PUBLIC_API_URL) {
     API_URL = process.env.EXPO_PUBLIC_API_URL;
 }

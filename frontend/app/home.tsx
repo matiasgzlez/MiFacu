@@ -34,7 +34,7 @@ const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user, isGuest, signOut } = useAuth();
+  const { user, isGuest, loading: authLoading, signOut } = useAuth();
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
   const [loading, setLoading] = useState(true);
@@ -108,9 +108,11 @@ export default function HomeScreen() {
   // Cargar datos reales
   useFocusEffect(
     useCallback(() => {
-      loadData();
-      checkPrivacyMode();
-    }, [user, isGuest])
+      if (!authLoading) {
+        loadData();
+        checkPrivacyMode();
+      }
+    }, [user, isGuest, authLoading])
   );
 
   const checkPrivacyMode = async () => {
@@ -128,14 +130,19 @@ export default function HomeScreen() {
   };
 
   const loadData = async () => {
+    // No hacer nada si aún estamos cargando el estado de autenticación
+    if (authLoading) return;
+
     try {
       setLoading(true);
 
-      let userId = null;
-
-      if (user) {
-        userId = user.id;
+      // Si no hay usuario y no es invitado, no podemos cargar nada del backend
+      if (!user && !isGuest) {
+        setLoading(false);
+        return;
       }
+
+      let userId = user?.id || null;
 
       // Cargar Recordatorios (Quick Tasks)
       const recordatorios = await DataRepository.getRecordatorios(isGuest);

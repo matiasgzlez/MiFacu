@@ -1,23 +1,41 @@
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Alert, TextInput, ActivityIndicator } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, Text, View, Dimensions, Animated, Alert } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../src/config/supabase';
 import { useAuth } from '../src/context/AuthContext';
 import { DataRepository } from '../src/services/dataRepository';
 import GoogleSignInButton from '../src/components/GoogleSignInButton';
+import AppleSignInButton from '../src/components/AppleSignInButton';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { isGuest, user, signInAsGuest } = useAuth();
-
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const { isGuest, user } = useAuth();
   const [loading, setLoading] = useState(false);
 
+  // Animaciones usando el core de React Native (máximo de estabilidad)
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
   useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      })
+    ]).start();
+
     if (user || isGuest) {
       router.replace('/home');
     }
@@ -28,140 +46,121 @@ export default function LoginScreen() {
     router.replace('/home');
   };
 
-  const handleEmailLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Error", "Por favor ingresa email y contraseña");
-      return;
-    }
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    setLoading(false);
+  const handleAppleCredential = (credential: any) => {
+    if (credential.identityToken) {
+      (async () => {
+        try {
+          setLoading(true);
+          const { data, error } = await supabase.auth.signInWithIdToken({
+            provider: 'apple',
+            token: credential.identityToken,
+          });
 
-    if (error) {
-      Alert.alert("Error de Login", error.message);
-    } else {
-      await syncAndNavigate();
-    }
-  };
-
-  const handleSignUp = async () => {
-    if (!email || !password) {
-      Alert.alert("Error", "Por favor ingresa email y contraseña");
-      return;
-    }
-    setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-    setLoading(false);
-
-    if (error) {
-      Alert.alert("Error de Registro", error.message);
-    } else {
-      Alert.alert("Registro Exitoso", "Por favor verifica tu email para confirmar la cuenta (si está habilitado), o inicia sesión.");
+          if (error) throw error;
+          await syncAndNavigate();
+        } catch (error: any) {
+          console.error('Error en Supabase Apple Auth:', error);
+          Alert.alert("Error de Apple", error.message);
+        } finally {
+          setLoading(false);
+        }
+      })();
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.logo}>MiFacu 🚀</Text>
-      <Text style={styles.subtitle}>Gestiona tu vida académica</Text>
+      <LinearGradient
+        colors={['#000', '#1c1c1e', '#000']}
+        style={StyleSheet.absoluteFill}
+      />
 
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#666"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Contraseña"
-          placeholderTextColor="#666"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+      <Animated.View
+        style={[
+          styles.content,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }]
+          }
+        ]}
+      >
+        <View style={styles.header}>
+          <Text style={styles.logo}>miFACU</Text>
+          <Text style={styles.tagline}>Tu vida académica, simplificada.</Text>
+        </View>
+
+        <View style={styles.buttonContainer}>
+          {/* Apple Sign In (Carga segura solo en iOS vía extensión de archivo .ios.tsx) */}
+          <AppleSignInButton onPress={handleAppleCredential} />
+
+          <View style={{ marginBottom: 16 }}>
+            <GoogleSignInButton />
+          </View>
+
+          <View style={styles.infoBox}>
+            <Text style={styles.infoText}>Iniciando sesión aceptas nuestros términos y condiciones.</Text>
+          </View>
+        </View>
+      </Animated.View>
+
+      <View style={styles.footer}>
+        <Text style={styles.footerText}>Hecho con ❤️ para estudiantes</Text>
       </View>
-
-      {loading ? (
-        <ActivityIndicator size="large" color="#fff" style={{ marginBottom: 20 }} />
-      ) : (
-        <>
-          <TouchableOpacity style={styles.loginButton} onPress={handleEmailLogin}>
-            <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.signUpButton} onPress={handleSignUp}>
-            <Text style={styles.signUpText}>Crear Cuenta</Text>
-          </TouchableOpacity>
-        </>
-      )}
-
-      <Text style={styles.orText}>— O —</Text>
-
-      <GoogleSignInButton />
-
-      <TouchableOpacity onPress={signInAsGuest} style={styles.guestButton}>
-        <Text style={styles.guestText}>Ingresar como Invitado (Offline)</Text>
-      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center', padding: 20 },
-  logo: { color: '#fff', fontSize: 36, fontWeight: 'bold', marginBottom: 10 },
-  subtitle: { color: '#aaa', fontSize: 18, marginBottom: 40 },
-
-  inputContainer: { width: '100%', marginBottom: 20 },
-  input: {
-    backgroundColor: '#1c1c1e',
+  container: {
+    flex: 1,
+    backgroundColor: '#000'
+  },
+  content: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 80,
+  },
+  logo: {
     color: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#333'
+    fontSize: 64,
+    fontWeight: '900',
+    letterSpacing: -2,
   },
-
-  loginButton: {
-    backgroundColor: '#0a84ff',
-    padding: 16,
-    borderRadius: 12,
+  tagline: {
+    color: '#8e8e93',
+    fontSize: 18,
+    marginTop: 8,
+    fontWeight: '500',
+    textAlign: 'center'
+  },
+  buttonContainer: {
+    width: '100%',
+  },
+  infoBox: {
+    marginTop: 20,
+    paddingHorizontal: 20,
+  },
+  infoText: {
+    color: '#48484a',
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+    width: '100%',
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 50,
     width: '100%',
     alignItems: 'center',
-    marginBottom: 12,
   },
-  loginButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-
-  signUpButton: {
-    backgroundColor: 'transparent',
-    padding: 10,
-    borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#333'
-  },
-  signUpText: { color: '#fff', fontSize: 16 },
-
-  orText: { color: '#444', marginVertical: 20 },
-
-  googleButton: {
-    backgroundColor: '#fff', padding: 16, borderRadius: 12, width: '100%', alignItems: 'center', marginBottom: 20,
-  },
-  googleText: { color: '#000', fontWeight: 'bold', fontSize: 16 },
-
-  guestButton: { padding: 15 },
-  guestText: { color: '#888', textDecorationLine: 'underline', fontSize: 15 },
+  footerText: {
+    color: '#48484a',
+    fontSize: 12,
+    fontWeight: '500',
+  }
 });
