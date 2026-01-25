@@ -4,7 +4,6 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Dimensions,
   Image,
-  ScrollView,
   StatusBar,
   Text,
   TouchableOpacity,
@@ -13,14 +12,15 @@ import {
   useColorScheme,
   TextInput,
   Pressable,
-  ActivityIndicator,
   Modal,
   TouchableWithoutFeedback,
   Alert,
   Keyboard,
-  Animated
+  Animated,
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Swipeable } from 'react-native-gesture-handler';
 import Svg, { Circle, G } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -29,8 +29,9 @@ import { useThemeColor } from '../src/hooks/use-theme-color';
 import { useAuth } from '../src/context/AuthContext';
 import { materiasApi } from '../src/services/api';
 import { DataRepository } from '../src/services/dataRepository';
+import { HomeSkeleton } from '../src/components/Skeleton';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -71,6 +72,21 @@ export default function HomeScreen() {
   // Animaciones Sheet Estadísticas
   const statsSheetAnim = useRef(new Animated.Value(Dimensions.get('window').height)).current;
   const statsOverlayOpacity = useRef(new Animated.Value(0)).current;
+
+  // FASE 1: Header iOS Colapsable - scrollY ref e interpolaciones
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [40, 70],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
+  const headerLargeOpacity = scrollY.interpolate({
+    inputRange: [0, 40],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
 
   const openStats = () => {
     setStatsModalVisible(true);
@@ -328,13 +344,45 @@ export default function HomeScreen() {
         translucent
       />
 
-      <ScrollView
+      {/* STICKY HEADER INLINE (Aparece al colapsar) */}
+      <Animated.View style={[
+        styles.headerInline,
+        {
+          borderBottomColor: theme.separator,
+          opacity: headerOpacity,
+          backgroundColor: backgroundColor + 'EE'
+        }
+      ]}>
+        <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+          <View style={styles.headerInlineContent}>
+            <Text style={[styles.headerInlineTitle, { color: textColor }]}>Mi Panel</Text>
+            <TouchableOpacity
+              onPress={handleLogout}
+              style={styles.headerInlineAvatar}
+              accessibilityLabel="Cerrar sesión"
+              accessibilityRole="button"
+            >
+              <Image
+                source={{ uri: user?.user_metadata?.avatar_url || 'https://i.pravatar.cc/100?img=33' }}
+                style={styles.avatarSmall}
+              />
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </Animated.View>
+
+      <Animated.ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: true }
+        )}
+        scrollEventThrottle={16}
       >
-        {/* HEADER & PROGRESS (Ahora dentro del scroll) */}
-        <View style={[styles.header, { borderBottomColor: 'transparent', paddingBottom: 10 }]}>
+        {/* LARGE TITLE HEADER (Dentro del scroll, colapsa) */}
+        <Animated.View style={[styles.header, { borderBottomColor: 'transparent', paddingBottom: 10, opacity: headerLargeOpacity }]}>
           <SafeAreaView edges={['top']}>
             <View style={styles.headerTop}>
               <View>
@@ -347,22 +395,31 @@ export default function HomeScreen() {
                 activeOpacity={0.7}
                 onPress={handleLogout}
                 style={[styles.avatarContainer, { borderColor: theme.tint + '40' }]}
+                accessibilityLabel="Cerrar sesión"
+                accessibilityRole="button"
               >
                 <Image
                   source={{ uri: user?.user_metadata?.avatar_url || 'https://i.pravatar.cc/100?img=33' }}
                   style={styles.avatar}
+                  accessibilityLabel="Foto de perfil"
                 />
               </TouchableOpacity>
             </View>
 
             {/* BARRA DE PROGRESO DE CARRERA */}
             <View style={styles.progressSection}>
-              <Pressable onPress={openStats}>
+              <Pressable
+                onPress={openStats}
+                accessibilityLabel={`Ver estadísticas. Progreso: ${privacyMode ? 'oculto' : carreraProgreso + ' por ciento'}`}
+                accessibilityRole="button"
+              >
                 <View style={styles.progressInfo}>
                   <TouchableOpacity
                     style={{ flexDirection: 'row', alignItems: 'center' }}
                     onPress={togglePrivacyMode}
                     activeOpacity={0.6}
+                    accessibilityLabel={privacyMode ? "Mostrar progreso" : "Ocultar progreso"}
+                    accessibilityRole="button"
                   >
                     <Text style={[styles.progressText, { color: theme.icon }]}>Progreso de Carrera</Text>
                     <Ionicons
@@ -399,7 +456,7 @@ export default function HomeScreen() {
               </Pressable>
             </View>
           </SafeAreaView>
-        </View>
+        </Animated.View>
 
         {/* NOTIFICACIÓN "PRÓXIMO PASO" (Card sutil y legible) */}
         {!loading && proximaClase && (
@@ -444,131 +501,152 @@ export default function HomeScreen() {
             </Pressable>
           </Animated.View>
         )}
-        {/* BARRA DE BÚSQUEDA (Sticky en iOS) */}
+        {/* SKELETON LOADING o CONTENIDO */}
+        {loading ? (
+          <HomeSkeleton />
+        ) : (
+          <>
+            {/* SECCIÓN: TAREAS RÁPIDAS */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.icon }]}>TAREAS RÁPIDAS</Text>
+              <View style={styles.tasksContainer}>
+                {/* Input Row */}
+                <View style={[styles.taskInputRow]}>
+                  <TextInput
+                    placeholder="Agregar nueva tarea..."
+                    placeholderTextColor={theme.icon}
+                    style={[styles.taskInput, { color: theme.text }]}
+                    value={newTask}
+                    onChangeText={setNewTask}
+                    onSubmitEditing={handleAddTask}
+                    returnKeyType="done"
+                    accessibilityLabel="Agregar nueva tarea"
+                    accessibilityHint="Escribe el nombre de la tarea y presiona enter"
+                  />
+                  <TouchableOpacity
+                    onPress={handleAddTask}
+                    disabled={addingTask || !newTask.trim()}
+                    style={[styles.addTaskButton, { backgroundColor: newTask.trim() ? theme.tint : theme.separator }]}
+                    accessibilityLabel="Agregar tarea"
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: addingTask || !newTask.trim() }}
+                  >
+                    <Ionicons name="add" size={20} color="white" />
+                  </TouchableOpacity>
+                </View>
 
-
-        {/* WIDGET: PRÓXIMO PASO - Eliminado de aquí para ser stationary */}
-
-        {/* SECCIÓN: TAREAS RÁPIDAS (NUEVO) */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.icon }]}>TAREAS RÁPIDAS</Text>
-          <View style={styles.tasksContainer}>
-            {/* Input Row */}
-            <View style={[styles.taskInputRow]}>
-              <TextInput
-                placeholder="Agregar nueva tarea..."
-                placeholderTextColor={theme.icon}
-                style={[styles.taskInput, { color: theme.text }]}
-                value={newTask}
-                onChangeText={setNewTask}
-                onSubmitEditing={handleAddTask}
-                returnKeyType="done"
-              />
-              <TouchableOpacity
-                onPress={handleAddTask}
-                disabled={addingTask || !newTask.trim()}
-                style={[styles.addTaskButton, { backgroundColor: newTask.trim() ? theme.tint : theme.separator }]}
-              >
-                <Ionicons name="add" size={20} color="white" />
-              </TouchableOpacity>
+                {/* Tasks List with Staggered Animations */}
+                {tasks.length === 0 ? (
+                  <View style={styles.emptyTasks} accessibilityLabel="No hay tareas pendientes">
+                    <Ionicons name="create-outline" size={24} color={theme.separator} style={{ marginBottom: 5 }} />
+                    <Text style={[styles.emptyTasksText, { color: theme.icon }]}>No hay tareas pendientes</Text>
+                  </View>
+                ) : (
+                  tasks.map((task: any, index: number) => (
+                    <AnimatedItem key={task.id} index={index} delay={50}>
+                      <SwipeableTask
+                        onDelete={() => handleCompleteTask(task.id)}
+                        theme={theme}
+                      >
+                        <TaskItem
+                          task={task}
+                          onDelete={() => handleCompleteTask(task.id)}
+                          theme={theme}
+                          separatorColor={separatorColor}
+                          isGuest={isGuest}
+                        />
+                      </SwipeableTask>
+                    </AnimatedItem>
+                  ))
+                )}
+              </View>
             </View>
 
-            {/* Tasks List */}
-            {tasks.length === 0 ? (
-              <View style={styles.emptyTasks}>
-                <Ionicons name="create-outline" size={24} color={theme.separator} style={{ marginBottom: 5 }} />
-                <Text style={[styles.emptyTasksText, { color: theme.icon }]}>No hay tareas pendientes</Text>
-              </View>
-            ) : (
-              tasks.map((task: any) => (
-                <DeletableTask
-                  key={task.id}
-                  onComplete={() => handleCompleteTask(task.id)}
-                  theme={theme}
-                >
-                  <TaskItem
-                    task={task}
+            {/* SECCIÓN: ACCIONES RÁPIDAS */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.icon }]}>ACCESO RÁPIDO</Text>
+              <View style={styles.priorityGrid}>
+                <AnimatedItem index={0} delay={100}>
+                  <PriorityCard
+                    icon="star"
+                    label="Finales"
+                    subtitle="En curso"
+                    color={theme.blue}
+                    onPress={() => router.push('/finales')}
                     theme={theme}
-                    separatorColor={separatorColor}
-                    isGuest={isGuest}
+                    cardColor={cardColor}
                   />
-                </DeletableTask>
-              ))
-            )}
-          </View>
-        </View>
+                </AnimatedItem>
+                <AnimatedItem index={1} delay={100}>
+                  <PriorityCard
+                    icon="calendar"
+                    label="Parciales"
+                    subtitle="Próximos"
+                    color={theme.orange}
+                    onPress={() => router.push('/parciales')}
+                    theme={theme}
+                    cardColor={cardColor}
+                  />
+                </AnimatedItem>
+              </View>
+            </View>
 
-        {/* SECCIÓN: ACCIONES RÁPIDAS */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.icon }]}>ACCESO RÁPIDO</Text>
-          <View style={styles.priorityGrid}>
-            <PriorityCard
-              icon="star"
-              label="Finales"
-              subtitle="En curso"
-              color={theme.blue}
-              onPress={() => router.push('/finales')}
-              theme={theme}
-              cardColor={cardColor}
-            />
-            <PriorityCard
-              icon="calendar"
-              label="Parciales"
-              subtitle="Próximos"
-              color={theme.orange}
-              onPress={() => router.push('/parciales')}
-              theme={theme}
-              cardColor={cardColor}
-            />
-          </View>
-        </View>
+            {/* SECCIÓN: HERRAMIENTAS */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: theme.icon }]}>HERRAMIENTAS</Text>
+              <View style={[styles.tableContainer, { backgroundColor: cardColor, borderColor: separatorColor }]}>
+                <AnimatedItem index={0} delay={150}>
+                  <TableRow
+                    icon="book"
+                    label="Mis Materias"
+                    color={theme.blue}
+                    onPress={() => router.push('/mis-materias')}
+                    isLast={false}
+                    theme={theme}
+                  />
+                </AnimatedItem>
+                <AnimatedItem index={1} delay={150}>
+                  <TableRow
+                    icon="time"
+                    label="Horarios"
+                    color={theme.green}
+                    onPress={() => router.push('/horarios')}
+                    isLast={false}
+                    theme={theme}
+                  />
+                </AnimatedItem>
+                <AnimatedItem index={2} delay={150}>
+                  <TableRow
+                    icon="calculator"
+                    label="Simulador de Notas"
+                    color={theme.red}
+                    onPress={() => router.push('/simulador')}
+                    isLast={false}
+                    theme={theme}
+                  />
+                </AnimatedItem>
+                <AnimatedItem index={3} delay={150}>
+                  <TableRow
+                    icon="folder-open"
+                    label="Repositorio"
+                    color={theme.slate}
+                    onPress={() => router.push('/repositorio' as any)}
+                    isLast={true}
+                    theme={theme}
+                  />
+                </AnimatedItem>
+              </View>
+            </View>
 
-        {/* SECCIÓN: HERRAMIENTAS */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme.icon }]}>HERRAMIENTAS</Text>
-          <View style={[styles.tableContainer, { backgroundColor: cardColor, borderColor: separatorColor }]}>
-            <TableRow
-              icon="book"
-              label="Mis Materias"
-              color={theme.blue}
-              onPress={() => router.push('/mis-materias')}
-              isLast={false}
-              theme={theme}
-            />
-            <TableRow
-              icon="time"
-              label="Horarios"
-              color={theme.green}
-              onPress={() => router.push('/horarios')}
-              isLast={false}
-              theme={theme}
-            />
-            <TableRow
-              icon="calculator"
-              label="Simulador de Notas"
-              color={theme.red}
-              onPress={() => router.push('/simulador')}
-              isLast={false}
-              theme={theme}
-            />
-            <TableRow
-              icon="folder-open"
-              label="Repositorio"
-              color={theme.slate}
-              onPress={() => router.push('/repositorio' as any)}
-              isLast={true}
-              theme={theme}
-            />
-          </View>
-        </View>
-
-        <View style={styles.infoBox}>
-          <Ionicons name="checkmark-circle-outline" size={14} color={theme.green} />
-          <Text style={[styles.infoText, { color: theme.icon }]}>
-            Datos sincronizados correctamente
-          </Text>
-        </View>
-      </ScrollView>
+            <View style={styles.infoBox} accessibilityLabel="Datos sincronizados correctamente">
+              <Ionicons name="checkmark-circle-outline" size={14} color={theme.green} />
+              <Text style={[styles.infoText, { color: theme.icon }]}>
+                Datos sincronizados correctamente
+              </Text>
+            </View>
+          </>
+        )}
+      </Animated.ScrollView>
 
       {/* MODAL / SHEET DE ESTADÍSTICAS */}
       <Modal
@@ -741,6 +819,9 @@ const PriorityCard = ({ icon, label, subtitle, color, onPress, theme, cardColor 
       styles.priorityCard,
       { backgroundColor: cardColor, transform: [{ scale: pressed ? 0.96 : 1 }] }
     ]}
+    accessibilityLabel={`${label}. ${subtitle}`}
+    accessibilityRole="button"
+    accessibilityHint={`Abre la sección de ${label}`}
   >
     <View style={[styles.priorityIcon, { backgroundColor: color }]}>
       <Ionicons name={icon} size={22} color="white" />
@@ -757,6 +838,9 @@ const TableRow = ({ icon, label, color, onPress, isLast, theme }: any) => (
       styles.rowWrapper,
       { backgroundColor: pressed ? theme.separator + '20' : 'transparent' }
     ]}
+    accessibilityLabel={label}
+    accessibilityRole="button"
+    accessibilityHint={`Abre ${label}`}
   >
     <View style={[styles.rowContainer, !isLast && { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
       <View style={[styles.rowIconBox, { backgroundColor: color }]}>
@@ -779,80 +863,101 @@ const StatItem = ({ number, label, color, theme, iconName, isBig }: any) => (
   </View>
 );
 
-// --- COMPONENTE ANIMADO PARA TAREAS ---
-const DeletableTask = ({ children, onComplete, theme }: any) => {
-  const [isDeleting, setIsDeleting] = useState(false);
-  const opacity = useRef(new Animated.Value(1)).current;
-  const scale = useRef(new Animated.Value(1)).current;
+// --- COMPONENTE ANIMADO CON STAGGER ---
+const AnimatedItem = ({ children, index = 0, delay = 50 }: { children: React.ReactNode; index?: number; delay?: number }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
 
-  // Partículas más pequeñas para tareas
-  const particles = useRef([...Array(8)].map(() => ({
-    x: new Animated.Value(0),
-    y: new Animated.Value(0),
-    opacity: new Animated.Value(0),
-    scale: new Animated.Value(0.5 + Math.random()),
-    dx: (Math.random() - 0.5) * 100,
-    dy: (Math.random() - 0.5) * 100,
-  }))).current;
+  useEffect(() => {
+    const staggerDelay = index * delay;
 
-  const triggerDelete = () => {
-    setIsDeleting(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const timer = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, staggerDelay);
 
-    const cardAnim = Animated.parallel([
-      Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-      Animated.timing(scale, { toValue: 0.95, duration: 300, useNativeDriver: true })
-    ]);
-
-    const particleAnims = particles.map(p => {
-      p.opacity.setValue(0.6);
-      return Animated.parallel([
-        Animated.timing(p.x, { toValue: p.dx, duration: 500, useNativeDriver: true }),
-        Animated.timing(p.y, { toValue: p.dy, duration: 500, useNativeDriver: true }),
-        Animated.timing(p.opacity, { toValue: 0, duration: 500, useNativeDriver: true })
-      ]);
-    });
-
-    Animated.parallel([
-      cardAnim,
-      Animated.stagger(30, particleAnims)
-    ]).start(() => {
-      onComplete();
-    });
-  };
-
-  // Inyectar trigger al hijo
-  const childrenWithProps = React.Children.map(children, child => {
-    if (React.isValidElement(child)) {
-      // @ts-ignore
-      return React.cloneElement(child, { onDeleteTrigger: triggerDelete });
-    }
-    return child;
-  });
+    return () => clearTimeout(timer);
+  }, [index, delay]);
 
   return (
-    <View style={{ marginBottom: 10, zIndex: isDeleting ? 99 : 1 }}>
-      <Animated.View style={{ opacity, transform: [{ scale }] }}>
-        {childrenWithProps}
-      </Animated.View>
-      {isDeleting && particles.map((p, i) => (
-        <Animated.View
-          key={i}
-          style={{
-            position: 'absolute', left: '10%', top: '50%',
-            width: 4, height: 4, borderRadius: 2,
-            backgroundColor: theme.text, opacity: p.opacity,
-            transform: [{ translateX: p.x }, { translateY: p.y }, { scale: p.scale }]
-          }}
-        />
-      ))}
-    </View>
+    <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
+      {children}
+    </Animated.View>
   );
 };
 
-const TaskItem = ({ task, onDeleteTrigger, theme, separatorColor, isGuest }: any) => {
+// --- SWIPE TO DELETE TASK ---
+const SwipeableTask = ({ children, onDelete, theme }: { children: React.ReactNode; onDelete: () => void; theme: any }) => {
+  const swipeableRef = useRef<Swipeable>(null);
+
+  const renderRightActions = (progress: Animated.AnimatedInterpolation<number>, dragX: Animated.AnimatedInterpolation<number>) => {
+    const scale = dragX.interpolate({
+      inputRange: [-100, 0],
+      outputRange: [1, 0.5],
+      extrapolate: 'clamp',
+    });
+
+    const opacity = dragX.interpolate({
+      inputRange: [-100, -50, 0],
+      outputRange: [1, 0.8, 0],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <Animated.View style={[styles.swipeDeleteContainer, { opacity }]}>
+        <TouchableOpacity
+          style={[styles.swipeDeleteButton, { backgroundColor: theme.red }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            swipeableRef.current?.close();
+            onDelete();
+          }}
+          accessibilityLabel="Eliminar tarea"
+          accessibilityRole="button"
+        >
+          <Animated.View style={{ transform: [{ scale }] }}>
+            <Ionicons name="trash-outline" size={22} color="white" />
+          </Animated.View>
+          <Text style={styles.swipeDeleteText}>Eliminar</Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
+  const onSwipeOpen = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  return (
+    <Swipeable
+      ref={swipeableRef}
+      renderRightActions={renderRightActions}
+      onSwipeableOpen={onSwipeOpen}
+      rightThreshold={40}
+      overshootRight={false}
+      friction={2}
+    >
+      {children}
+    </Swipeable>
+  );
+};
+
+// --- COMPONENTE TAREA CON ANIMACIÓN DE ELIMINACIÓN ---
+const TaskItem = ({ task, onDelete, theme, separatorColor, isGuest }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [text, setText] = useState(task.nombre || task.titulo);
+  const opacity = useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(1)).current;
 
   const handleSave = async () => {
     setIsEditing(false);
@@ -863,9 +968,33 @@ const TaskItem = ({ task, onDeleteTrigger, theme, separatorColor, isGuest }: any
     }
   };
 
+  const handleComplete = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 0.9, duration: 250, useNativeDriver: true })
+    ]).start(() => {
+      onDelete();
+    });
+  };
+
   return (
-    <View style={[styles.taskItem, { backgroundColor: theme.backgroundSecondary, borderColor: separatorColor }]}>
-      <TouchableOpacity onPress={onDeleteTrigger} style={styles.taskCheckbox}>
+    <Animated.View style={[
+      styles.taskItem,
+      {
+        backgroundColor: theme.backgroundSecondary,
+        borderColor: separatorColor,
+        opacity,
+        transform: [{ scale }]
+      }
+    ]}>
+      <TouchableOpacity
+        onPress={handleComplete}
+        style={styles.taskCheckbox}
+        accessibilityLabel="Marcar tarea como completada"
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: false }}
+      >
         <View style={[styles.checkboxCircle, { borderColor: theme.tint }]} />
       </TouchableOpacity>
 
@@ -878,18 +1007,57 @@ const TaskItem = ({ task, onDeleteTrigger, theme, separatorColor, isGuest }: any
           onSubmitEditing={handleSave}
           autoFocus={true}
           returnKeyType="done"
+          accessibilityLabel="Editar nombre de tarea"
         />
       ) : (
-        <TouchableOpacity onPress={() => setIsEditing(true)} style={{ flex: 1 }}>
+        <TouchableOpacity
+          onPress={() => setIsEditing(true)}
+          style={{ flex: 1 }}
+          accessibilityLabel={`Tarea: ${text}. Toca para editar`}
+          accessibilityRole="button"
+        >
           <Text style={[styles.taskText, { color: theme.text }]}>{text}</Text>
         </TouchableOpacity>
       )}
-    </View>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+
+  // STICKY HEADER INLINE (Aparece al colapsar)
+  headerInline: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: Platform.OS === 'ios' ? 100 : 70,
+    zIndex: 100,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerInlineContent: {
+    flex: 1,
+    paddingTop: Platform.OS === 'ios' ? 45 : 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+  },
+  headerInlineTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  headerInlineAvatar: {
+    padding: 2,
+  },
+  avatarSmall: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+
+  // LARGE TITLE HEADER (Dentro del scroll)
   header: { paddingTop: 50, paddingBottom: 20, paddingHorizontal: 20, borderBottomWidth: StyleSheet.hairlineWidth },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   headerLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginBottom: 2, textTransform: 'uppercase' },
@@ -907,8 +1075,29 @@ const styles = StyleSheet.create({
   searchContainer: { paddingHorizontal: 20, paddingVertical: 12 },
   searchBar: { flexDirection: 'row', alignItems: 'center', height: 38, borderRadius: 10, paddingHorizontal: 5 },
   searchInput: { flex: 1, height: '100%', marginLeft: 8, fontSize: 16 },
-  section: { marginBottom: 25, paddingHorizontal: 20 },
+  section: { marginBottom: 28, paddingHorizontal: 20 },
   sectionTitle: { fontSize: 13, fontWeight: '600', marginBottom: 12, marginLeft: 5, textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  // SWIPE TO DELETE
+  swipeDeleteContainer: {
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    marginBottom: 10,
+  },
+  swipeDeleteButton: {
+    width: 80,
+    height: '100%',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 10,
+  },
+  swipeDeleteText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 4,
+  },
 
   // Estilos Notificación Inline (Card Style)
   inlinePillContainer: {
@@ -985,8 +1174,12 @@ const styles = StyleSheet.create({
   emptyTasksText: { fontSize: 14, fontWeight: '500', opacity: 0.5 },
 
   taskItem: {
-    flexDirection: 'row', alignItems: 'center', padding: 16,
-    borderRadius: 16, borderWidth: 1, marginBottom: 0
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 10,
   },
   taskCheckbox: { marginRight: 15, padding: 2 },
   checkboxCircle: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, opacity: 0.6 },
@@ -994,11 +1187,30 @@ const styles = StyleSheet.create({
   taskInputEdit: { flex: 1, fontSize: 16, fontWeight: '500', padding: 0 },
 
   priorityGrid: { flexDirection: 'row', justifyContent: 'space-between' },
-  priorityCard: { flex: 1, marginHorizontal: 5, padding: 16, borderRadius: 18, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
+  priorityCard: {
+    flex: 1,
+    marginHorizontal: 5,
+    padding: 16,
+    borderRadius: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3
+  },
   priorityIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   priorityLabel: { fontSize: 16, fontWeight: '700' },
   prioritySubtitle: { fontSize: 12, marginTop: 2 },
-  tableContainer: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+  tableContainer: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1
+  },
   rowWrapper: { width: '100%' },
   rowContainer: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, marginLeft: 55 },
   rowIconBox: { position: 'absolute', left: -40, width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
