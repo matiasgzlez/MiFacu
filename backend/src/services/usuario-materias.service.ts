@@ -85,12 +85,10 @@ export class UsuarioMateriasService {
         usuarioMateria.estado = estado;
 
         if (scheduleData) {
-            Object.assign(usuarioMateria, {
-                dia: scheduleData.dia,
-                hora: scheduleData.hora !== undefined ? Number(scheduleData.hora) : usuarioMateria.hora,
-                duracion: scheduleData.duracion !== undefined ? Number(scheduleData.duracion) : usuarioMateria.duracion,
-                aula: scheduleData.aula
-            });
+            usuarioMateria.dia = scheduleData.dia !== undefined ? scheduleData.dia : usuarioMateria.dia;
+            usuarioMateria.hora = scheduleData.hora !== undefined && scheduleData.hora !== null ? Number(scheduleData.hora) : usuarioMateria.hora;
+            usuarioMateria.duracion = scheduleData.duracion !== undefined && scheduleData.duracion !== null ? Number(scheduleData.duracion) : usuarioMateria.duracion;
+            usuarioMateria.aula = scheduleData.aula !== undefined ? scheduleData.aula : usuarioMateria.aula;
         }
 
         return await this.usuarioMateriaRepository.save(usuarioMateria);

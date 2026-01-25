@@ -286,16 +286,21 @@ function MisMateriasScreen() {
     try {
       setLoadingAction(true);
 
-      // Parsear horas y calcular duración
-      const startH = parseInt(horaInicio.split(':')[0]) || 8;
-      const endH = parseInt(horaFin.split(':')[0]) || startH + 2;
+      // Parsear horas y calcular duración de forma robusta
+      const parseTime = (timeStr: string) => {
+        const match = timeStr.match(/(\d{1,2}):(\d{2})/);
+        return match ? parseInt(match[1]) : 0;
+      };
+
+      const startH = parseTime(horaInicio);
+      const endH = parseTime(horaFin);
       const dur = Math.max(1, endH - startH);
 
       const schedule = estadoSeleccionado === 'cursado' ? {
         dia,
         hora: startH,
         duracion: dur,
-        aula
+        aula: aula.trim() || null
       } : { dia: null, hora: null, duracion: null, aula: null };
 
       if (modoEdicion && materiaEditando) {

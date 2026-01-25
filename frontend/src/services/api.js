@@ -12,13 +12,9 @@ import { supabase } from '../config/supabase';
 let API_URL = 'https://mifacu-backend-production.up.railway.app'; // URL de Railway de Producción
 
 if (__DEV__) {
-    // En desarrollo, usamos localhost o la IP local para el celular físico
-    API_URL = 'http://localhost:4000';
-
-    if (Platform.OS === 'android' || Platform.OS === 'ios') {
-        // Cambia esta IP por tu IP local si usas celular físico
-        API_URL = 'http://192.168.0.20:4000';
-    }
+    // En desarrollo, usamos la IP local para dispositivos físicos
+    // Cambia esta IP si tu red local cambia
+    API_URL = 'http://192.168.0.20:4000';
 }
 
 // Permitir override por variables de entorno de Expo (útil para TestFlight/Config externa)
