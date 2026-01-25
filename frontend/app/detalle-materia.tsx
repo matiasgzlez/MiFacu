@@ -1,62 +1,109 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { getMateriaById, updateMateria } from '../src/data/db'; // Importamos DB
+import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { materiasApi } from '../src/services/api';
+import { useAuth } from '../src/context/AuthContext';
+
+interface Materia {
+  id: number;
+  nombre: string;
+  nivel: number;
+  estado: string;
+  dia?: string;
+  hora?: number;
+  aula?: string;
+}
 
 export default function DetalleMateriaScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { id } = params; // Ahora buscamos por ID
+  const { id } = params as { id: string };
 
-  const [materia, setMateria] = useState(null);
+  const { isGuest, user } = useAuth();
+  const [materia, setMateria] = useState<Materia | null>(null);
+  const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
-  
+
   // Estados para edición
   const [nuevoDia, setNuevoDia] = useState('');
   const [nuevaHora, setNuevaHora] = useState('');
   const [nuevaAula, setNuevaAula] = useState('');
 
-  useEffect(() => {
-    // Buscar datos reales en la DB
-    if (id) {
-      const data = getMateriaById(id);
-      if (data) {
-        setMateria(data);
+  const loadMateria = async () => {
+    if (!id) return;
+    try {
+      setLoading(true);
+      const data = await materiasApi.getMateriasByUsuario(user?.id);
+      const item = data.find((um: any) => um.materiaId.toString() === id.toString());
+
+      if (item) {
+        setMateria({
+          id: item.materiaId,
+          nombre: item.materia.nombre,
+          nivel: parseInt(item.materia.nivel) || 1,
+          estado: item.estado,
+          dia: item.dia,
+          hora: item.hora,
+          aula: item.aula
+        });
         // Inicializar formulario
-        setNuevoDia(data.dia || 'LU');
-        setNuevaHora(data.hora?.toString() || '18');
-        setNuevaAula(data.aula || 'Sin aula');
+        setNuevoDia(item.dia || 'LU');
+        setNuevaHora(item.hora?.toString() || '18');
+        setNuevaAula(item.aula || 'Sin aula');
       }
+    } catch (e) {
+      console.error("Error cargando materia:", e);
+    } finally {
+      setLoading(false);
     }
-  }, [id]);
-
-  const handleGuardar = () => {
-    // Validar hora
-    const horaNum = parseInt(nuevaHora);
-    if (horaNum < 8 || horaNum > 23) return Alert.alert("Hora inválida", "La facultad abre de 8 a 23.");
-
-    // Guardar en DB
-    updateMateria(id, {
-      dia: nuevoDia.toUpperCase(),
-      hora: horaNum,
-      aula: nuevaAula
-    });
-
-    // Actualizar vista local
-    setMateria({ ...materia, dia: nuevoDia.toUpperCase(), hora: horaNum, aula: nuevaAula });
-    setEditMode(false);
-    Alert.alert("¡Horario Actualizado!", "Se reflejará en tu agenda.");
   };
 
-  if (!materia) return <View style={styles.container}><Text>Cargando...</Text></View>;
+  useEffect(() => {
+    loadMateria();
+  }, [id, isGuest]);
+
+  const handleGuardar = async () => {
+    // Validar hora
+    const horaNum = parseInt(nuevaHora);
+    if (isNaN(horaNum) || horaNum < 8 || horaNum > 23) return Alert.alert("Hora inválida", "La facultad abre de 8 a 23.");
+
+    try {
+      if (materia) {
+        await materiasApi.updateEstadoMateria(user?.id, id, materia.estado, {
+          dia: nuevoDia.toUpperCase(),
+          hora: horaNum,
+          aula: nuevaAula
+        });
+
+        Alert.alert("¡Horario Actualizado!", "Se reflejará en tu agenda.");
+        loadMateria(); // Recargar datos
+        setEditMode(false);
+      }
+    } catch (error) {
+      Alert.alert("Error", "No se pudo actualizar el horario.");
+    }
+  };
+
+  if (loading) return (
+    <View style={[styles.container, { justifyContent: 'center' }]}>
+      <ActivityIndicator size="large" color="#2E5EC9" />
+    </View>
+  );
+
+  if (!materia) return (
+    <View style={styles.container}>
+      <Text style={{ textAlign: 'center', marginTop: 50 }}>Materia no encontrada</Text>
+    </View>
+  );
 
   const colorTema = materia.estado === 'aprobada' ? '#4CAF50' : '#2E5EC9';
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colorTema} />
-      
+
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: colorTema }]}>
         <SafeAreaView>
@@ -65,7 +112,7 @@ export default function DetalleMateriaScreen() {
               <Ionicons name="arrow-back" size={28} color="#fff" />
             </TouchableOpacity>
             <Text style={styles.topTitle}>Ficha Académica</Text>
-            
+
             {/* Botón Editar / Guardar */}
             <TouchableOpacity onPress={() => editMode ? handleGuardar() : setEditMode(true)}>
               <Ionicons name={editMode ? "checkmark-circle" : "create-outline"} size={28} color="#fff" />
@@ -82,7 +129,7 @@ export default function DetalleMateriaScreen() {
       </View>
 
       <ScrollView style={styles.content}>
-        
+
         {/* Tarjeta de Cursada (EDITABLE) */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>
@@ -165,7 +212,7 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 15 },
   row: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   rowText: { marginLeft: 10, fontSize: 14, color: '#444' },
-  
+
   // Estilos de Edición
   editRow: { flex: 1, flexDirection: 'row', alignItems: 'center', marginLeft: 10 },
   label: { fontSize: 12, color: '#666', marginRight: 10 },

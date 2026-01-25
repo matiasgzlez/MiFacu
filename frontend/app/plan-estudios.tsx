@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { getMaterias } from '../src/data/db';
+import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { materiasApi } from '../src/services/api';
+import { useAuth } from '../src/context/AuthContext';
 
 // Interfaces
 interface Materia {
@@ -20,14 +22,37 @@ export default function PlanEstudiosScreen() {
   const router = useRouter();
   const [materias, setMaterias] = useState<Materia[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isGuest, user } = useAuth();
+
+  const loadMaterias = async () => {
+    try {
+      setLoading(true);
+      const data = await materiasApi.getMateriasByUsuario(user?.id);
+
+      // Mapear el formato del backend al que espera el componente
+      const mapped = data.map((um: any) => ({
+        id: um.materiaId,
+        nombre: um.materia.nombre,
+        nivel: parseInt(um.materia.nivel) || 1,
+        estado: um.estado,
+        dia: um.dia,
+        hora: um.hora,
+        aula: um.aula
+      }));
+
+      setMaterias(mapped);
+    } catch (e) {
+      console.error("Error cargando materias:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Recargar datos al volver a la pantalla
   useFocusEffect(
     React.useCallback(() => {
-      const todas = getMaterias();
-      setMaterias(todas);
-      setLoading(false);
-    }, [])
+      loadMaterias();
+    }, [isGuest])
   );
 
   const toggleMateria = (materia: Materia) => {
@@ -37,7 +62,7 @@ export default function PlanEstudiosScreen() {
   };
 
   const getColor = (estado: string) => {
-    switch(estado) {
+    switch (estado) {
       case 'aprobada': return '#4CAF50';
       case 'cursando': return '#2196F3';
       case 'regularizada': return '#FF9800';
@@ -65,7 +90,7 @@ export default function PlanEstudiosScreen() {
               <Ionicons name="arrow-back" size={28} color="#fff" />
             </TouchableOpacity>
             <Text style={styles.title}>Mis Materias</Text>
-            <View style={{width: 28}} />
+            <View style={{ width: 28 }} />
           </View>
         </SafeAreaView>
       </View>
@@ -94,7 +119,7 @@ export default function PlanEstudiosScreen() {
             <Ionicons name="chevron-forward" size={24} color="#999" />
           </TouchableOpacity>
         ))}
-        <View style={{height: 50}} />
+        <View style={{ height: 50 }} />
       </ScrollView>
     </View>
   );

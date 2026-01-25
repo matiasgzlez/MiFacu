@@ -14,15 +14,16 @@ export class RecordatoriosService {
         this.materiasService = new MateriasService();
     }
 
-    async getAllRecordatorios(): Promise<Recordatorio[]> {
+    async getAllRecordatorios(userId: string): Promise<Recordatorio[]> {
         return await this.recordatorioRepository.find({
+            where: { userId },
             relations: ['materia'],
         });
     }
 
-    async getRecordatorioById(id: number): Promise<Recordatorio> {
+    async getRecordatorioById(id: number, userId: string): Promise<Recordatorio> {
         const recordatorio = await this.recordatorioRepository.findOne({
-            where: { id },
+            where: { id, userId },
             relations: ['materia'],
         });
 
@@ -35,35 +36,41 @@ export class RecordatoriosService {
 
     async createRecordatorio(data: {
         nombre: string;
-        materiaNombre: string;
+        materiaNombre?: string;
         tipo: TipoRecordatorio;
-        fecha: Date | string;
-        hora: string;
-        color: string;
-    }): Promise<Recordatorio> {
-        const { nombre, materiaNombre, tipo, fecha, hora, color } = data;
+        fecha?: Date | string;
+        hora?: string;
+        color?: string;
+        descripcion?: string;
+    }, userId: string): Promise<Recordatorio> {
+        const { nombre, materiaNombre, tipo, fecha, hora, color, descripcion } = data;
 
-        const materia = await this.materiasService.findOrCreateMateria(materiaNombre);
+        let materia = null;
+        if (materiaNombre) {
+            materia = await this.materiasService.findOrCreateMateria(materiaNombre);
+        }
 
         // Convertir fecha string a Date si es necesario
-        const fechaDate = typeof fecha === 'string' ? new Date(fecha) : fecha;
+        const fechaDate = fecha ? (typeof fecha === 'string' ? new Date(fecha) : fecha) : null;
 
         const recordatorio = this.recordatorioRepository.create({
             nombre,
-            materiaId: materia.id,
+            materiaId: materia ? materia.id : null,
             tipo,
             fecha: fechaDate,
-            hora,
-            color,
+            hora: hora || null,
+            color: color || '#FFD700', // Default color for quick tasks
             notificado: false,
-            materia,
+            materia: materia,
+            descripcion: descripcion || '',
+            userId // Asignar el ID del usuario
         });
 
         return await this.recordatorioRepository.save(recordatorio);
     }
 
-    async deleteRecordatorio(id: number): Promise<void> {
-        const recordatorio = await this.getRecordatorioById(id);
+    async deleteRecordatorio(id: number, userId: string): Promise<void> {
+        const recordatorio = await this.getRecordatorioById(id, userId);
         await this.recordatorioRepository.remove(recordatorio);
     }
 
@@ -76,9 +83,10 @@ export class RecordatoriosService {
             hora: string;
             color: string;
             notificado: boolean;
-        }>
+        }>,
+        userId: string
     ): Promise<Recordatorio> {
-        const recordatorio = await this.getRecordatorioById(id);
+        const recordatorio = await this.getRecordatorioById(id, userId);
 
         Object.assign(recordatorio, data);
 

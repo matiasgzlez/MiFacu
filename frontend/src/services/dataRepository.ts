@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, linksApi } from './api';
 import { getLocalData, saveLocalData } from './storage';
 
 const LOCAL_RECORDATORIOS_KEY = 'local_recordatorios';
@@ -12,7 +12,8 @@ export const DataRepository = {
             // API call
             try {
                 const response = await api.get('/recordatorios');
-                return response.data;
+                // Backend returns { status: 'success', data: [...] }
+                return response.data.data;
             } catch (error) {
                 console.error("Error fetching recordatorios:", error);
                 return [];
@@ -31,9 +32,26 @@ export const DataRepository = {
         } else {
             try {
                 const response = await api.post('/recordatorios', data);
-                return response.data;
+                return response.data.data || response.data;
             } catch (error) {
                 console.error("Error creating recordatorio:", error);
+                throw error;
+            }
+        }
+    },
+
+    async updateRecordatorio(isGuest: boolean, id: number, data: any) {
+        if (isGuest) {
+            const current = (await getLocalData(LOCAL_RECORDATORIOS_KEY)) || [];
+            const updated = current.map((r: any) => r.id === id ? { ...r, ...data } : r);
+            await saveLocalData(LOCAL_RECORDATORIOS_KEY, updated);
+            return updated.find((r: any) => r.id === id);
+        } else {
+            try {
+                const response = await api.put(`/recordatorios/${id}`, data);
+                return response.data.data;
+            } catch (error) {
+                console.error("Error updating recordatorio:", error);
                 throw error;
             }
         }
@@ -60,7 +78,7 @@ export const DataRepository = {
         } else {
             try {
                 const response = await api.get('/finales');
-                return response.data;
+                return response.data.data;
             } catch (error) {
                 console.error("Error fetching finales:", error);
                 return [];
@@ -78,7 +96,7 @@ export const DataRepository = {
         } else {
             try {
                 const response = await api.post('/finales', data);
-                return response.data;
+                return response.data.data || response.data;
             } catch (error) {
                 console.error("Error creating final:", error);
                 throw error;
@@ -115,6 +133,52 @@ export const DataRepository = {
         } catch (error) {
             console.error("Sync failed:", error);
             // Don't clear data if sync fails
+        }
+    },
+
+    // --- LINKS (REPOSITORIO) ---
+    async getLinks(isGuest: boolean) {
+        if (isGuest) {
+            return (await getLocalData('local_links')) || [];
+        } else {
+            try {
+                return await linksApi.getLinks();
+            } catch (error) {
+                console.error("Error fetching links:", error);
+                return [];
+            }
+        }
+    },
+
+    async createLink(isGuest: boolean, data: any) {
+        if (isGuest) {
+            const current = (await getLocalData('local_links')) || [];
+            const newLink = { ...data, id: Date.now(), isLocal: true };
+            const updated = [...current, newLink];
+            await saveLocalData('local_links', updated);
+            return newLink;
+        } else {
+            return await linksApi.createLink(data);
+        }
+    },
+
+    async updateLink(isGuest: boolean, id: number, data: any) {
+        if (isGuest) {
+            const current = (await getLocalData('local_links')) || [];
+            const updated = current.map((l: any) => l.id === id ? { ...l, ...data } : l);
+            await saveLocalData('local_links', updated);
+        } else {
+            return await linksApi.updateLink(id, data);
+        }
+    },
+
+    async deleteLink(isGuest: boolean, id: number) {
+        if (isGuest) {
+            const current = (await getLocalData('local_links')) || [];
+            const updated = current.filter((l: any) => l.id !== id);
+            await saveLocalData('local_links', updated);
+        } else {
+            await linksApi.deleteLink(id);
         }
     }
 };

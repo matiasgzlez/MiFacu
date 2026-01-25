@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type AuthContextType = {
     session: Session | null;
@@ -57,6 +58,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const signOut = async () => {
         await supabase.auth.signOut();
+        await AsyncStorage.clear();
         setIsGuest(false);
     };
 

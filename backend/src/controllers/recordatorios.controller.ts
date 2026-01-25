@@ -10,7 +10,8 @@ export class RecordatoriosController {
     }
 
     getRecordatorios = asyncHandler(async (req: Request, res: Response) => {
-        const recordatorios = await this.recordatoriosService.getAllRecordatorios();
+        const userId = req.user.id;
+        const recordatorios = await this.recordatoriosService.getAllRecordatorios(userId);
         res.status(200).json({
             status: 'success',
             data: recordatorios,
@@ -19,7 +20,8 @@ export class RecordatoriosController {
 
     getRecordatorio = asyncHandler(async (req: Request, res: Response) => {
         const { id } = req.params;
-        const recordatorio = await this.recordatoriosService.getRecordatorioById(parseInt(id));
+        const userId = req.user.id;
+        const recordatorio = await this.recordatoriosService.getRecordatorioById(parseInt(id), userId);
         res.status(200).json({
             status: 'success',
             data: recordatorio,
@@ -27,7 +29,8 @@ export class RecordatoriosController {
     });
 
     createRecordatorio = asyncHandler(async (req: Request, res: Response) => {
-        const recordatorio = await this.recordatoriosService.createRecordatorio(req.body);
+        const userId = req.user.id;
+        const recordatorio = await this.recordatoriosService.createRecordatorio(req.body, userId);
         res.status(201).json({
             status: 'success',
             data: recordatorio,
@@ -36,9 +39,11 @@ export class RecordatoriosController {
 
     updateRecordatorio = asyncHandler(async (req: Request, res: Response) => {
         const { id } = req.params;
+        const userId = req.user.id;
         const recordatorio = await this.recordatoriosService.updateRecordatorio(
             parseInt(id),
-            req.body
+            req.body,
+            userId
         );
         res.status(200).json({
             status: 'success',
@@ -48,7 +53,8 @@ export class RecordatoriosController {
 
     deleteRecordatorio = asyncHandler(async (req: Request, res: Response) => {
         const { id } = req.params;
-        await this.recordatoriosService.deleteRecordatorio(parseInt(id));
+        const userId = req.user.id;
+        await this.recordatoriosService.deleteRecordatorio(parseInt(id), userId);
         res.status(204).send();
     });
 }
