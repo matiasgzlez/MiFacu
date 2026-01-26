@@ -1,0 +1,134 @@
+import React, { useState, memo, useCallback, useRef } from 'react';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Animated } from 'react-native';
+import * as Haptics from 'expo-haptics';
+import { DataRepository } from '../../services/dataRepository';
+import type { ThemeColors, Recordatorio } from '../../types';
+
+interface TaskItemProps {
+  task: Recordatorio;
+  onDelete: () => void;
+  theme: ThemeColors;
+  separatorColor: string;
+  isGuest: boolean;
+}
+
+/**
+ * Individual task item with edit and complete functionality
+ * Optimized with React.memo
+ */
+export const TaskItem = memo<TaskItemProps>(function TaskItem({
+  task,
+  onDelete,
+  theme,
+  separatorColor,
+  isGuest,
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [text, setText] = useState(task.nombre);
+
+  const opacity = useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handleSave = useCallback(async () => {
+    setIsEditing(false);
+    if (text.trim() !== task.nombre) {
+      try {
+        await DataRepository.updateRecordatorio(isGuest, task.id, { nombre: text.trim() });
+      } catch (e) {
+        console.error('Error updating task', e);
+      }
+    }
+  }, [text, task.nombre, task.id, isGuest]);
+
+  const handleComplete = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+      Animated.timing(scale, { toValue: 0.9, duration: 250, useNativeDriver: true }),
+    ]).start(() => {
+      onDelete();
+    });
+  }, [opacity, scale, onDelete]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.taskItem,
+        {
+          backgroundColor: theme.backgroundSecondary,
+          borderColor: separatorColor,
+          opacity,
+          transform: [{ scale }],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        onPress={handleComplete}
+        style={styles.taskCheckbox}
+        accessibilityLabel="Marcar tarea como completada"
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: false }}
+      >
+        <View style={[styles.checkboxCircle, { borderColor: theme.tint }]} />
+      </TouchableOpacity>
+
+      {isEditing ? (
+        <TextInput
+          style={[styles.taskInputEdit, { color: theme.text }]}
+          value={text}
+          onChangeText={setText}
+          onBlur={handleSave}
+          onSubmitEditing={handleSave}
+          autoFocus
+          returnKeyType="done"
+          accessibilityLabel="Editar nombre de tarea"
+        />
+      ) : (
+        <TouchableOpacity
+          onPress={() => setIsEditing(true)}
+          style={styles.textContainer}
+          accessibilityLabel={`Tarea: ${text}. Toca para editar`}
+          accessibilityRole="button"
+        >
+          <Text style={[styles.taskText, { color: theme.text }]}>{text}</Text>
+        </TouchableOpacity>
+      )}
+    </Animated.View>
+  );
+});
+
+const styles = StyleSheet.create({
+  taskItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 10,
+  },
+  taskCheckbox: {
+    marginRight: 15,
+    padding: 2,
+  },
+  checkboxCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    opacity: 0.6,
+  },
+  textContainer: {
+    flex: 1,
+  },
+  taskText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  taskInputEdit: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+    padding: 0,
+  },
+});
