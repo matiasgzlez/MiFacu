@@ -27,6 +27,7 @@ import * as Notifications from 'expo-notifications';
 import { DataRepository } from '../src/services/dataRepository';
 import { useAuth } from '../src/context/AuthContext';
 import { Colors } from '../src/constants/theme';
+import { materiasApi } from '../src/services/api';
 
 const { width, height } = Dimensions.get('window');
 const CARD_MARGIN = 20;
@@ -246,8 +247,14 @@ export default function ParcialesScreen() {
   const [eventos, setEventos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Lista de materias disponibles
+  const [materias, setMaterias] = useState<{ id: number; nombre: string }[]>([]);
+  const [showMateriaPicker, setShowMateriaPicker] = useState(false);
+
   // Estados para el Sheet (Modal Animado)
   const [modalVisible, setModalVisible] = useState(false);
+  const [selectedMateriaId, setSelectedMateriaId] = useState<number | null>(null);
+  const [selectedMateriaNombre, setSelectedMateriaNombre] = useState('');
   const [nuevoTitulo, setNuevoTitulo] = useState('');
   const [nuevoTipo, setNuevoTipo] = useState<'Parcial' | 'Entrega'>('Parcial');
   const [nuevaFecha, setNuevaFecha] = useState('');
@@ -308,8 +315,19 @@ export default function ParcialesScreen() {
     return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}`;
   };
 
+  const loadMaterias = async () => {
+    try {
+      const data = await materiasApi.getMaterias();
+      const sorted = data.sort((a: any, b: any) => (a.numero || 999) - (b.numero || 999));
+      setMaterias(sorted.map((m: any) => ({ id: m.id, nombre: m.nombre })));
+    } catch (e) {
+      console.error('Error cargando materias:', e);
+    }
+  };
+
   useEffect(() => {
     loadData();
+    loadMaterias();
   }, [isGuest]);
 
   const openSheet = () => {
@@ -377,15 +395,20 @@ export default function ParcialesScreen() {
       const year = new Date().getFullYear();
       const isoDate = `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
 
-      const nuevoEvento = {
+      const nuevoEvento: any = {
         nombre: nuevoTitulo,
         tipo: nuevoTipo,
         fecha: isoDate,
         hora: nuevaHora || "09:00",
         color: nuevoColor,
-        materiaNombre: "General",
-        // Agregar campos de notificación si la DB lo soporta, o usar custom fields
       };
+
+      // Solo agregar materiaId si se seleccionó una materia
+      if (selectedMateriaId) {
+        nuevoEvento.materiaId = selectedMateriaId;
+        // Incluir nombre para guest mode (almacenamiento local)
+        nuevoEvento.materiaNombre = selectedMateriaNombre;
+      }
 
       const result = await DataRepository.createRecordatorio(isGuest, nuevoEvento);
       const newId = result?.id || result?.data?.id;
@@ -426,6 +449,7 @@ export default function ParcialesScreen() {
       // Reset inputs
       setNuevoTitulo(''); setNuevaFecha(''); setNuevaHora('');
       setNuevoColor(PALETA_COLORES[0]); setNotificar(true);
+      setSelectedMateriaId(null); setSelectedMateriaNombre('');
     } catch (error) {
       Alert.alert("Error", "No se pudo crear el evento.");
     }
@@ -478,6 +502,67 @@ export default function ParcialesScreen() {
           )}
         </ScrollView>
       </SafeAreaView>
+
+      {/* MODAL SELECTOR DE MATERIA */}
+      <Modal
+        visible={showMateriaPicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowMateriaPicker(false)}
+      >
+        <View style={styles.pickerModalContainer}>
+          <View style={[styles.pickerModalContent, { backgroundColor: theme.backgroundSecondary }]}>
+            <View style={styles.pickerModalHeader}>
+              <Text style={[styles.pickerModalTitle, { color: theme.text }]}>Seleccionar Materia</Text>
+              <TouchableOpacity onPress={() => setShowMateriaPicker(false)}>
+                <Ionicons name="close-circle" size={28} color={theme.icon} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.pickerList} showsVerticalScrollIndicator={false}>
+              {/* Opción para quitar selección */}
+              <TouchableOpacity
+                style={[
+                  styles.pickerItem,
+                  { borderBottomColor: theme.separator + '30' },
+                  !selectedMateriaId && { backgroundColor: theme.tint + '20' }
+                ]}
+                onPress={() => {
+                  setSelectedMateriaId(null);
+                  setSelectedMateriaNombre('');
+                  setShowMateriaPicker(false);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                }}
+              >
+                <Text style={[styles.pickerItemText, { color: theme.icon, fontStyle: 'italic' }]}>Sin materia asociada</Text>
+                {!selectedMateriaId && (
+                  <Ionicons name="checkmark-circle" size={22} color={theme.tint} />
+                )}
+              </TouchableOpacity>
+              {materias.map((m) => (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[
+                    styles.pickerItem,
+                    { borderBottomColor: theme.separator + '30' },
+                    selectedMateriaId === m.id && { backgroundColor: theme.tint + '20' }
+                  ]}
+                  onPress={() => {
+                    setSelectedMateriaId(m.id);
+                    setSelectedMateriaNombre(m.nombre);
+                    setShowMateriaPicker(false);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={[styles.pickerItemText, { color: theme.text }]}>{m.nombre}</Text>
+                  {selectedMateriaId === m.id && (
+                    <Ionicons name="checkmark-circle" size={22} color={theme.tint} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* CUSTOM ANIMATED SHEET */}
       <Modal
@@ -551,6 +636,17 @@ export default function ParcialesScreen() {
                     value={nuevoTitulo}
                     onChangeText={setNuevoTitulo}
                   />
+
+                  <Text style={[styles.label, { color: theme.icon }]}>MATERIA (OPCIONAL)</Text>
+                  <TouchableOpacity
+                    style={[styles.input, styles.pickerButton, { backgroundColor: theme.separator + '30' }]}
+                    onPress={() => setShowMateriaPicker(true)}
+                  >
+                    <Text style={[styles.pickerButtonText, { color: selectedMateriaNombre ? theme.text : theme.icon }]}>
+                      {selectedMateriaNombre || 'Seleccionar materia...'}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color={theme.icon} />
+                  </TouchableOpacity>
 
                   <View style={styles.rowInputs}>
                     <View style={{ flex: 1, marginRight: 15 }}>
@@ -802,5 +898,54 @@ const styles = StyleSheet.create({
   },
   cardContainer: {
     width: '100%',
+  },
+
+  // MATERIA PICKER STYLES
+  pickerButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pickerButtonText: {
+    fontSize: 17,
+    fontWeight: '500',
+  },
+  pickerModalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  pickerModalContent: {
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    maxHeight: '70%',
+  },
+  pickerModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  pickerModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  pickerList: {
+    maxHeight: 400,
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+  },
+  pickerItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
   },
 });

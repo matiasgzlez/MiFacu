@@ -26,6 +26,7 @@ import * as Notifications from 'expo-notifications';
 import { DataRepository } from '../src/services/dataRepository';
 import { useAuth } from '../src/context/AuthContext';
 import { Colors } from '../src/constants/theme';
+import { materiasApi } from '../src/services/api';
 
 // Configuración de notificaciones
 Notifications.setNotificationHandler({
@@ -266,9 +267,14 @@ export default function FinalesScreen() {
   }[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Lista de materias disponibles
+  const [materias, setMaterias] = useState<{ id: number; nombre: string }[]>([]);
+  const [showMateriaPicker, setShowMateriaPicker] = useState(false);
+
   // Estados para el Sheet (Modal Animado)
   const [modalVisible, setModalVisible] = useState(false);
-  const [nuevaMateria, setNuevaMateria] = useState('');
+  const [selectedMateriaId, setSelectedMateriaId] = useState<number | null>(null);
+  const [selectedMateriaNombre, setSelectedMateriaNombre] = useState('');
   const [nuevaFecha, setNuevaFecha] = useState('');
   const [nuevaHora, setNuevaHora] = useState('');
   const [nuevoColor, setNuevoColor] = useState(PALETA_COLORES[0]);
@@ -308,6 +314,17 @@ export default function FinalesScreen() {
     }
   };
 
+  const loadMaterias = async () => {
+    try {
+      const data = await materiasApi.getMaterias();
+      // Ordenar por número de materia
+      const sorted = data.sort((a: any, b: any) => (a.numero || 999) - (b.numero || 999));
+      setMaterias(sorted.map((m: any) => ({ id: m.id, nombre: m.nombre })));
+    } catch (e) {
+      console.error('Error cargando materias:', e);
+    }
+  };
+
   const requestPermissions = async () => {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
@@ -320,6 +337,7 @@ export default function FinalesScreen() {
 
   useEffect(() => {
     loadData();
+    loadMaterias();
     requestPermissions();
   }, [isGuest]);
 
@@ -386,9 +404,9 @@ export default function FinalesScreen() {
   };
 
   const handleAgregar = async () => {
-    if (!nuevaMateria || nuevaFecha.length < 5) {
+    if (!selectedMateriaId || nuevaFecha.length < 5) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      return Alert.alert("Faltan datos", "Por favor ingresa materia y fecha.");
+      return Alert.alert("Faltan datos", "Por favor selecciona una materia y fecha.");
     }
 
     const [d, m] = nuevaFecha.split('/');
@@ -396,7 +414,9 @@ export default function FinalesScreen() {
     const isoDate = `${currentYear}-${m}-${d}`;
 
     const nuevo = {
-      materiaNombre: nuevaMateria.toUpperCase().trim(),
+      materiaId: selectedMateriaId,
+      // Incluir nombre para guest mode (almacenamiento local) y notificaciones
+      materiaNombre: selectedMateriaNombre,
       fecha: isoDate,
       hora: nuevaHora || "09:00",
       color: nuevoColor,
@@ -422,8 +442,8 @@ export default function FinalesScreen() {
             await Notifications.scheduleNotificationAsync({
               identifier: finalId.toString(),
               content: {
-                title: `📚 ¡Examen de ${nuevaMateria.toUpperCase()}!`,
-                body: `Mañana tienes el final de ${nuevaMateria}. ¡Mucho éxito!`,
+                title: `📚 ¡Examen de ${selectedMateriaNombre}!`,
+                body: `Mañana tienes el final de ${selectedMateriaNombre}. ¡Mucho éxito!`,
                 data: { finalId },
               },
               trigger: {
@@ -439,7 +459,7 @@ export default function FinalesScreen() {
 
       closeSheet();
       loadData();
-      setNuevaMateria(''); setNuevaFecha(''); setNuevaHora(''); setNuevoColor(PALETA_COLORES[0]);
+      setSelectedMateriaId(null); setSelectedMateriaNombre(''); setNuevaFecha(''); setNuevaHora(''); setNuevoColor(PALETA_COLORES[0]);
     } catch (e) { Alert.alert("Error creando"); }
   };
 
@@ -494,6 +514,48 @@ export default function FinalesScreen() {
 
       </SafeAreaView>
 
+      {/* MODAL SELECTOR DE MATERIA */}
+      <Modal
+        visible={showMateriaPicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowMateriaPicker(false)}
+      >
+        <View style={styles.pickerModalContainer}>
+          <View style={[styles.pickerModalContent, { backgroundColor: theme.backgroundSecondary }]}>
+            <View style={styles.pickerModalHeader}>
+              <Text style={[styles.pickerModalTitle, { color: theme.text }]}>Seleccionar Materia</Text>
+              <TouchableOpacity onPress={() => setShowMateriaPicker(false)}>
+                <Ionicons name="close-circle" size={28} color={theme.icon} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.pickerList} showsVerticalScrollIndicator={false}>
+              {materias.map((m) => (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[
+                    styles.pickerItem,
+                    { borderBottomColor: theme.separator + '30' },
+                    selectedMateriaId === m.id && { backgroundColor: theme.tint + '20' }
+                  ]}
+                  onPress={() => {
+                    setSelectedMateriaId(m.id);
+                    setSelectedMateriaNombre(m.nombre);
+                    setShowMateriaPicker(false);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                >
+                  <Text style={[styles.pickerItemText, { color: theme.text }]}>{m.nombre}</Text>
+                  {selectedMateriaId === m.id && (
+                    <Ionicons name="checkmark-circle" size={22} color={theme.tint} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       {/* CUSTOM ANIMATED SHEET */}
       <Modal
         visible={modalVisible}
@@ -536,14 +598,15 @@ export default function FinalesScreen() {
 
                 <View style={styles.form}>
                   <Text style={[styles.label, { color: theme.icon }]}>MATERIA</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: theme.separator + '30', color: theme.text }]}
-                    placeholder="E.J. ANÁLISIS MATEMÁTICO"
-                    placeholderTextColor={theme.icon}
-                    value={nuevaMateria}
-                    onChangeText={setNuevaMateria}
-                    autoCapitalize="characters"
-                  />
+                  <TouchableOpacity
+                    style={[styles.input, styles.pickerButton, { backgroundColor: theme.separator + '30' }]}
+                    onPress={() => setShowMateriaPicker(true)}
+                  >
+                    <Text style={[styles.pickerButtonText, { color: selectedMateriaNombre ? theme.text : theme.icon }]}>
+                      {selectedMateriaNombre || 'Seleccionar materia...'}
+                    </Text>
+                    <Ionicons name="chevron-down" size={20} color={theme.icon} />
+                  </TouchableOpacity>
 
                   <View style={styles.rowInputs}>
                     <View style={{ flex: 1, marginRight: 15 }}>
@@ -807,5 +870,54 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     marginTop: 4,
+  },
+
+  // MATERIA PICKER STYLES
+  pickerButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  pickerButtonText: {
+    fontSize: 17,
+    fontWeight: '500',
+  },
+  pickerModalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  pickerModalContent: {
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    maxHeight: '70%',
+  },
+  pickerModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  pickerModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  pickerList: {
+    maxHeight: 400,
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+  },
+  pickerItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
   },
 });

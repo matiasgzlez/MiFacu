@@ -36,6 +36,7 @@ export class RecordatoriosService {
 
     async createRecordatorio(data: {
         nombre: string;
+        materiaId?: number;
         materiaNombre?: string;
         tipo: TipoRecordatorio;
         fecha?: Date | string;
@@ -43,10 +44,13 @@ export class RecordatoriosService {
         color?: string;
         descripcion?: string;
     }, userId: string): Promise<Recordatorio> {
-        const { nombre, materiaNombre, tipo, fecha, hora, color, descripcion } = data;
+        const { nombre, materiaId, materiaNombre, tipo, fecha, hora, color, descripcion } = data;
 
+        // Preferir materiaId si está disponible, sino usar materiaNombre (legacy/guest sync)
         let materia = null;
-        if (materiaNombre) {
+        if (materiaId) {
+            materia = await this.materiasService.getMateriaById(materiaId);
+        } else if (materiaNombre) {
             materia = await this.materiasService.findOrCreateMateria(materiaNombre);
         }
 

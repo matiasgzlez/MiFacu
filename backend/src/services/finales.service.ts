@@ -34,16 +34,25 @@ export class FinalesService {
     }
 
     async createFinal(data: {
-        materiaNombre: string;
+        materiaId?: number;
+        materiaNombre?: string;
         fecha: Date;
         hora: string;
         color: string;
         notificar?: boolean;
         recordatorioAnticipacion?: number;
     }, userId: string): Promise<Final> {
-        const { materiaNombre, fecha, hora, color, notificar, recordatorioAnticipacion } = data;
+        const { materiaId, materiaNombre, fecha, hora, color, notificar, recordatorioAnticipacion } = data;
 
-        const materia = await this.materiasService.findOrCreateMateria(materiaNombre);
+        // Preferir materiaId si está disponible, sino usar materiaNombre (legacy/guest sync)
+        let materia;
+        if (materiaId) {
+            materia = await this.materiasService.getMateriaById(materiaId);
+        } else if (materiaNombre) {
+            materia = await this.materiasService.findOrCreateMateria(materiaNombre);
+        } else {
+            throw new AppError('Se requiere materiaId o materiaNombre', 400);
+        }
 
         const final = this.finalRepository.create({
             materiaId: materia.id,
