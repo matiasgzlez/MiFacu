@@ -161,5 +161,46 @@ export const linksApi = {
     }
 };
 
+// API de Calificaciones de Catedras
+export const calificacionesApi = {
+    getAll: async (materiaId = null) => {
+        const params = materiaId ? `?materiaId=${materiaId}` : '';
+        const response = await api.get(`/calificaciones-catedras${params}`);
+        return response.data.data || response.data;
+    },
+    getById: async (id) => {
+        const response = await api.get(`/calificaciones-catedras/${id}`);
+        return response.data.data || response.data;
+    },
+    create: async (data) => {
+        const response = await api.post('/calificaciones-catedras', data);
+        return response.data.data || response.data;
+    },
+    update: async (id, data) => {
+        const response = await api.put(`/calificaciones-catedras/${id}`, data);
+        return response.data.data || response.data;
+    },
+    delete: async (id) => {
+        await api.delete(`/calificaciones-catedras/${id}`);
+        return true;
+    },
+    votar: async (id, tipo) => {
+        const response = await api.post(`/calificaciones-catedras/${id}/voto`, { tipo });
+        return response.data.data || response.data;
+    },
+    reportar: async (id, motivo) => {
+        const response = await api.post(`/calificaciones-catedras/${id}/reportar`, { motivo });
+        return response.data;
+    },
+    getPromedioMateria: async (materiaId) => {
+        const response = await api.get(`/calificaciones-catedras/materia/${materiaId}/promedio`);
+        return response.data.data || response.data;
+    },
+    getProfesoresSugeridos: async (materiaId) => {
+        const response = await api.get(`/calificaciones-catedras/materia/${materiaId}/profesores`);
+        return response.data.data || response.data;
+    }
+};
+
 // Exportar objeto api por defecto o como nombrado
 export default api;

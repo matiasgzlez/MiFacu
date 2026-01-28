@@ -20,9 +20,12 @@ function RootNavigator() {
     if (loading) return;
 
     const inAuthGroup = segments[0] === "(tabs)";
+    // Lista de rutas permitidas para usuarios logueados (pantallas stack)
+    const allowedStackRoutes = ["finales", "parciales", "simulador", "horarios", "repositorio", "calificaciones", "selectMateria", "detalle-materia", "plan-estudios", "home", "mis-materias", "agenda"];
+    const inAllowedStack = allowedStackRoutes.includes(segments[0]);
 
-    if (isLoggedIn && !inAuthGroup) {
-      // Logged in but not in tabs, redirect to tabs
+    if (isLoggedIn && !inAuthGroup && !inAllowedStack) {
+      // Logged in but not in tabs or allowed stack, redirect to tabs
       router.replace("/(tabs)");
     } else if (!isLoggedIn && inAuthGroup) {
       // Not logged in but in tabs, redirect to login
@@ -63,6 +66,8 @@ function RootNavigator() {
         <Stack.Screen name="simulador" options={{ presentation: 'card' }} />
         <Stack.Screen name="horarios" options={{ presentation: 'card' }} />
         <Stack.Screen name="repositorio" options={{ presentation: 'card' }} />
+        <Stack.Screen name="calificaciones" options={{ presentation: 'card' }} />
+        <Stack.Screen name="selectMateria" options={{ presentation: 'card' }} />
         <Stack.Screen name="detalle-materia" options={{ presentation: 'card' }} />
         <Stack.Screen name="plan-estudios" options={{ presentation: 'card' }} />
 
