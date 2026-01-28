@@ -41,25 +41,27 @@ export default function LoginScreen() {
     }
   }, [user]);
 
-  const handleAppleCredential = (credential: any) => {
+  const handleAppleCredential = async (credential: any) => {
     if (credential.identityToken) {
-      (async () => {
-        try {
-          setLoading(true);
-          const { data, error } = await supabase.auth.signInWithIdToken({
-            provider: 'apple',
-            token: credential.identityToken,
-          });
+      try {
+        setLoading(true);
+        const { data, error } = await supabase.auth.signInWithIdToken({
+          provider: 'apple',
+          token: credential.identityToken,
+        });
 
-          if (error) throw error;
-          router.replace('/(tabs)');
-        } catch (error: any) {
-          console.error('Error en Supabase Apple Auth:', error);
-          Alert.alert("Error de Apple", error.message);
-        } finally {
-          setLoading(false);
-        }
-      })();
+        if (error) throw error;
+
+        // Si es el primer login, Apple nos manda el nombre.
+        // Podríamos actualizar el perfil si fuera necesario, 
+        // pero Supabase ya gestiona el registro básico.
+        router.replace('/(tabs)');
+      } catch (error: any) {
+        console.error('Error en Supabase Apple Auth:', error);
+        Alert.alert("Error de Apple", error.message);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
