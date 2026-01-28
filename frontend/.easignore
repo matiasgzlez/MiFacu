@@ -1,0 +1,20 @@
+# Ignorar carpetas del sistema de agentes (causan error EPERM en Windows)
+.agent/
+.agents/
+.gemini/
+.claude/
+
+# Ignorar carpetas de desarrollo y logs
+node_modules/
+.expo/
+dist/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Ignorar archivos locales
+.env*.local
+*.tsbuildinfo
+
+# Ignorar carpetas de git de niveles superiores si existieran
+.git/

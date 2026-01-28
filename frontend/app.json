@@ -7,10 +7,13 @@
     "icon": "./assets/images/icon.png",
     "scheme": "mifacumobile",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.plaidlabs.mifacu"
+      "bundleIdentifier": "com.plaidlabs.mifacu",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.plaidlabs.mifacu",
@@ -48,6 +51,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "5c143b01-31e0-4ee1-9f2f-19366cef3ad7"
+      }
     }
   }
 }

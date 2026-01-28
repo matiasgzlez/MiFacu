@@ -17,15 +17,18 @@ El usuario desea que al iniciar sesión por primera vez (o al entrar como invita
 - **Carreras (Mock):** Ingeniería en Sistemas de Información, + futuras.
 
 ## Flujos
-### A. Primer Inicio (Onboarding)
-- [ ] Verificar si el usuario tiene una carrera asignada.
-- [ ] Mostrar modal si no hay carrera.
-- [ ] Guardar selección en Supabase (Auth) o AsyncStorage (Invitado).
-
-### B. Gestión en Perfil
-- [ ] Mostrar carrera actual en la pantalla de Perfil.
-- [ ] Botón "Cambiar Carrera".
-- [ ] Reutilizar el componente de selección.
+###- [x] Corrección de Logout y Redirección instantánea
+- [x] Eliminación total del Modo Invitado (`isGuest`)
+- [x] Implementación de Onboarding de Carrera (`CarreraModal`)
+- [x] Configuración de Identidad Plaid Labs en `app.json`
+- [x] Habilitación de Apple Sign-In y Plugins Nativos
+- [/] Despliegue a TestFlight (iOS)
+    - [x] Configuración de `eas.json` y `bundleIdentifier`
+    - [x] Limpieza de conflictos en la raíz del repositorio
+    - [x] Resolución de error `EPERM` mediante `.easignore`
+    - [/] Resolución de error Xcode `folly/coro/Coroutine.h` (Fijando Arquitectura Estable)
+    - [ ] Envío exitoso a App Store Connect
+- [ ] Verificación en dispositivo real vía TestFlight
 
 ---
 

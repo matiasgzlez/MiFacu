@@ -1,0 +1,16 @@
+# Ignorar carpetas del sistema de agentes (causan error EPERM en Windows)
+.agent/
+.agents/
+.gemini/
+.claude/
+.cursor/
+
+# Ignorar todo el contenido fuera de frontend para evitar que EAS escanee de más
+backend/
+docker/
+.git/
+node_modules/
+
+# Ignorar archivos locales
+.env
+*.log
