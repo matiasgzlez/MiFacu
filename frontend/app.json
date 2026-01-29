@@ -52,7 +52,10 @@
         "expo-build-properties",
         {
           "ios": {
-            "newArchEnabled": false
+            "newArchEnabled": false,
+            "otherCPlusPlusFlags": [
+              "-DFOLLY_CFG_NO_COROUTINES=1"
+            ]
           },
           "android": {
             "newArchEnabled": false
