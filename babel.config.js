@@ -1,5 +1,3 @@
-const path = require('path');
-
 module.exports = function (api) {
     api.cache(true);
     return {
@@ -10,9 +8,8 @@ module.exports = function (api) {
                 "module-resolver",
                 {
                     alias: {
-                        "@": "./src",
+                        "@": "./frontend/src",
                     },
-                    cwd: __dirname,
                 },
             ],
         ],

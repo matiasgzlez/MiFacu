@@ -10,5 +10,10 @@
         "frontend": "cd frontend && npm start",
         "backend": "cd backend && npm start"
     },
-    "main": "frontend/index.js"
+    "main": "frontend/index.js",
+    "devDependencies": {
+        "babel-plugin-module-resolver": "^5.0.2",
+        "expo": "~54.0.32",
+        "react-native-reanimated": "~3.16.1"
+    }
 }
