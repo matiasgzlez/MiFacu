@@ -3,6 +3,7 @@
 # ==========================================
 node_modules/
 package-lock.json
+.expo/
 yarn.lock
 pnpm-lock.yaml
 .pnp
