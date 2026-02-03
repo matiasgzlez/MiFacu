@@ -37,8 +37,14 @@ export function useTemasFinales(materiaIdFilter?: number): UseTemasFinalesReturn
             const data = await temasFinalesApi.getAll(materiaId ?? materiaIdFilter);
             setTemas(data);
         } catch (e: any) {
-            console.error('Error cargando temas de finales:', e);
-            setError('Error al cargar los temas de finales');
+            const status = e?.response?.status;
+            if (status === 404) {
+                // Endpoint no disponible aún (migración pendiente)
+                setTemas([]);
+            } else {
+                console.error('Error cargando temas de finales:', e);
+                setError('Error al cargar los temas de finales');
+            }
         } finally {
             setLoading(false);
             setRefreshing(false);

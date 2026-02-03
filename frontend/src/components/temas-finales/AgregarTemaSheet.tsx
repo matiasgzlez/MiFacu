@@ -303,9 +303,10 @@ export function AgregarTemaSheet({
                                                     <DateTimePicker
                                                         value={fechaMesa || new Date()}
                                                         mode="date"
-                                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                                        display={Platform.OS === 'ios' ? 'spinner' : 'calendar'}
                                                         onChange={handleDateChange}
                                                         maximumDate={new Date()}
+                                                        locale="es-AR"
                                                     />
                                                     {Platform.OS === 'ios' && (
                                                         <TouchableOpacity

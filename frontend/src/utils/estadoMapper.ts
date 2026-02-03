@@ -35,6 +35,39 @@ export const SIMULADOR_COLORS = {
   overlay: 'rgba(0, 0, 0, 0.4)',
 } as const;
 
+// Colores dinámicos según dark mode
+export function getSimuladorColors(isDark: boolean) {
+  return {
+    // Estados (accent colors - no cambian)
+    aprobada: SIMULADOR_COLORS.aprobada,
+    regularizada: SIMULADOR_COLORS.regularizada,
+    pendiente: SIMULADOR_COLORS.pendiente,
+    bloqueada: SIMULADOR_COLORS.bloqueada,
+
+    // Conexiones (accent - no cambian)
+    lineaActiva: SIMULADOR_COLORS.lineaActiva,
+
+    // Fondos
+    background: isDark ? '#000000' : '#F2F2F7',
+    backgroundSecondary: isDark ? '#1C1C1E' : '#FFFFFF',
+    backgroundTertiary: isDark ? '#2C2C2E' : '#E5E5EA',
+
+    // Texto
+    textPrimary: isDark ? '#FFFFFF' : '#000000',
+    textSecondary: isDark ? '#EBEBF5' : '#3C3C43',
+    textTertiary: '#8E8E93',
+
+    // Separadores
+    separator: isDark ? 'rgba(84,84,88,0.36)' : 'rgba(60,60,67,0.12)',
+
+    // Conexiones inactivas
+    lineaInactiva: isDark ? '#48484A' : '#C7C7CC',
+
+    // Overlay
+    overlay: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.4)',
+  };
+}
+
 // Configuración visual por estado - Estilo iOS
 export const ESTADO_CONFIG = {
   aprobada: {

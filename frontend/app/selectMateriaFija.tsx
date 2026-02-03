@@ -32,18 +32,18 @@ const NIVEL_COLORS: Record<number, { primary: string; gradient: string[] }> = {
 };
 
 const NIVEL_LABELS: Record<number, string> = {
-    1: '1\u00b0 A\u00f1o',
-    2: '2\u00b0 A\u00f1o',
-    3: '3\u00b0 A\u00f1o',
-    4: '4\u00b0 A\u00f1o',
-    5: '5\u00b0 A\u00f1o',
+    1: '1° Año',
+    2: '2° Año',
+    3: '3° Año',
+    4: '4° Año',
+    5: '5° Año',
 };
 
 const ORDEN_OPTIONS: { value: OrdenTipoTemas; label: string; icon: string }[] = [
     { value: 'temas_desc', label: 'Mas temas', icon: 'trending-up' },
     { value: 'temas_asc', label: 'Menos temas', icon: 'trending-down' },
     { value: 'alfabetico', label: 'A-Z', icon: 'text' },
-    { value: 'numero', label: 'N\u00b0 Materia', icon: 'list' },
+    { value: 'numero', label: 'N° Materia', icon: 'list' },
 ];
 
 export default function SelectMateriaFijaScreen() {
@@ -253,7 +253,7 @@ export default function SelectMateriaFijaScreen() {
                                     <Text style={[
                                         styles.filterText,
                                         { color: isActive ? '#FFF' : nivelInfo.primary }
-                                    ]}>{nivel}\u00b0</Text>
+                                    ]}>{nivel}°</Text>
                                 </TouchableOpacity>
                             );
                         })}

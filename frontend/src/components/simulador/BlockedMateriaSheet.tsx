@@ -13,7 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MateriaSimulador } from '../../hooks/useSimuladorData';
-import { SIMULADOR_COLORS, getEstadoConfig } from '../../utils/estadoMapper';
+import { SIMULADOR_COLORS, getSimuladorColors, getEstadoConfig } from '../../utils/estadoMapper';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -29,6 +29,7 @@ interface BlockedMateriaSheetProps {
   sheetAnim: Animated.Value;
   overlayOpacity: Animated.Value;
   onClose: () => void;
+  isDark: boolean;
 }
 
 export function BlockedMateriaSheet({
@@ -38,8 +39,10 @@ export function BlockedMateriaSheet({
   sheetAnim,
   overlayOpacity,
   onClose,
+  isDark,
 }: BlockedMateriaSheetProps) {
   const insets = useSafeAreaInsets();
+  const colors = getSimuladorColors(isDark);
 
   if (!visible || !materia) return null;
 

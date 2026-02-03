@@ -23,10 +23,12 @@ import { MateriaDetailSheet } from '../src/components/simulador/MateriaDetailShe
 import { BlockedMateriaSheet, CorrelativaFaltante } from '../src/components/simulador/BlockedMateriaSheet';
 import {
   SIMULADOR_COLORS,
+  getSimuladorColors,
   getEstadoConfig,
   getNextEstado,
   EstadoVisual,
 } from '../src/utils/estadoMapper';
+import { useTheme } from '../src/context/ThemeContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -45,9 +47,10 @@ interface ConnectionProps {
   y2: number;
   isActive: boolean;
   index: number;
+  inactiveColor: string;
 }
 
-const Connection = React.memo(({ x1, y1, x2, y2, isActive, index }: ConnectionProps) => {
+const Connection = React.memo(({ x1, y1, x2, y2, isActive, index, inactiveColor }: ConnectionProps) => {
   // Ajustar puntos para que las líneas terminen antes del nodo
   const padding = 8;
   const adjustedY1 = y1 + padding;
@@ -57,7 +60,7 @@ const Connection = React.memo(({ x1, y1, x2, y2, isActive, index }: ConnectionPr
   const midY = (adjustedY1 + adjustedY2) / 2;
   const pathD = `M ${x1} ${adjustedY1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${adjustedY2}`;
 
-  const strokeColor = isActive ? SIMULADOR_COLORS.aprobada : '#D1D1D6';
+  const strokeColor = isActive ? SIMULADOR_COLORS.aprobada : inactiveColor;
   const strokeWidth = isActive ? 2.5 : 1.5;
   const opacity = isActive ? 1 : 0.6;
 
@@ -80,11 +83,13 @@ interface MateriaNodeProps {
   top: number;
   onPress: () => void;
   onLongPress: () => void;
+  isDark: boolean;
 }
 
-const MateriaNode = React.memo(({ materia, left, top, onPress, onLongPress }: MateriaNodeProps) => {
+const MateriaNode = React.memo(({ materia, left, top, onPress, onLongPress, isDark }: MateriaNodeProps) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const config = getEstadoConfig(materia.estado);
+  const colors = getSimuladorColors(isDark);
 
   const handlePressIn = useCallback(() => {
     Animated.spring(scaleAnim, {
@@ -109,10 +114,10 @@ const MateriaNode = React.memo(({ materia, left, top, onPress, onLongPress }: Ma
 
   // Fondo sólido basado en estado
   const solidBgColor = isBlocked
-    ? '#F5F5F5'
+    ? (isDark ? '#2C2C2E' : '#F5F5F5')
     : isCompleted
-      ? (materia.estado === 'aprobada' ? '#E8F8EE' : '#FFF8E8')
-      : '#FFFFFF';
+      ? (materia.estado === 'aprobada' ? (isDark ? '#1A3A2A' : '#E8F8EE') : (isDark ? '#3A2A1A' : '#FFF8E8'))
+      : colors.backgroundSecondary;
 
   return (
     <Animated.View
@@ -135,7 +140,7 @@ const MateriaNode = React.memo(({ materia, left, top, onPress, onLongPress }: Ma
           styles.nodeContainer,
           {
             backgroundColor: solidBgColor,
-            borderColor: isCompleted ? config.color : SIMULADOR_COLORS.separator,
+            borderColor: isCompleted ? config.color : colors.separator,
             borderWidth: isCompleted ? 2.5 : 1,
             opacity: isBlocked ? 0.7 : 1,
           },
@@ -155,7 +160,7 @@ const MateriaNode = React.memo(({ materia, left, top, onPress, onLongPress }: Ma
         <Text
           style={[
             styles.nodeText,
-            { color: isBlocked ? SIMULADOR_COLORS.textTertiary : SIMULADOR_COLORS.textPrimary }
+            { color: isBlocked ? colors.textTertiary : colors.textPrimary }
           ]}
           numberOfLines={3}
           adjustsFontSizeToFit
@@ -165,8 +170,8 @@ const MateriaNode = React.memo(({ materia, left, top, onPress, onLongPress }: Ma
         </Text>
 
         {/* Badge de nivel */}
-        <View style={[styles.levelBadge, isCompleted && { backgroundColor: config.color + '20' }]}>
-          <Text style={[styles.levelText, isCompleted && { color: config.color }]}>
+        <View style={[styles.levelBadge, { backgroundColor: colors.backgroundTertiary }, isCompleted && { backgroundColor: config.color + '20' }]}>
+          <Text style={[styles.levelText, { color: colors.textTertiary }, isCompleted && { color: config.color }]}>
             Año {materia.nivel}
           </Text>
         </View>
@@ -178,10 +183,12 @@ const MateriaNode = React.memo(({ materia, left, top, onPress, onLongPress }: Ma
 // Componente de estadísticas compactas
 interface StatsBarProps {
   stats: SimuladorStats;
+  isDark: boolean;
 }
 
-const StatsBar = React.memo(({ stats }: StatsBarProps) => {
+const StatsBar = React.memo(({ stats, isDark }: StatsBarProps) => {
   const progressAnim = useRef(new Animated.Value(0)).current;
+  const colors = getSimuladorColors(isDark);
 
   useEffect(() => {
     Animated.spring(progressAnim, {
@@ -200,7 +207,7 @@ const StatsBar = React.memo(({ stats }: StatsBarProps) => {
   return (
     <View style={styles.statsContainer}>
       {/* Barra de progreso */}
-      <View style={styles.progressBarContainer}>
+      <View style={[styles.progressBarContainer, { backgroundColor: colors.backgroundTertiary }]}>
         <Animated.View
           style={[
             styles.progressBarFill,
@@ -213,18 +220,18 @@ const StatsBar = React.memo(({ stats }: StatsBarProps) => {
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
           <View style={[styles.statDot, { backgroundColor: SIMULADOR_COLORS.aprobada }]} />
-          <Text style={styles.statValue}>{stats.aprobadas}</Text>
-          <Text style={styles.statLabel}>Apr</Text>
+          <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats.aprobadas}</Text>
+          <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Apr</Text>
         </View>
         <View style={styles.statItem}>
           <View style={[styles.statDot, { backgroundColor: SIMULADOR_COLORS.regularizada }]} />
-          <Text style={styles.statValue}>{stats.regulares}</Text>
-          <Text style={styles.statLabel}>Reg</Text>
+          <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats.regulares}</Text>
+          <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Reg</Text>
         </View>
         <View style={styles.statItem}>
           <View style={[styles.statDot, { backgroundColor: SIMULADOR_COLORS.pendiente }]} />
-          <Text style={styles.statValue}>{stats.cursando}</Text>
-          <Text style={styles.statLabel}>Disp</Text>
+          <Text style={[styles.statValue, { color: colors.textPrimary }]}>{stats.cursando}</Text>
+          <Text style={[styles.statLabel, { color: colors.textTertiary }]}>Disp</Text>
         </View>
         <Text style={styles.percentageText}>{stats.porcentaje}%</Text>
       </View>
@@ -235,6 +242,8 @@ const StatsBar = React.memo(({ stats }: StatsBarProps) => {
 export default function SimuladorScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { isDark } = useTheme();
+  const dynamicColors = getSimuladorColors(isDark);
 
   const {
     materias,
@@ -460,21 +469,22 @@ export default function SimuladorScreen() {
             y2={y2}
             isActive={isActive}
             index={connectionIndex++}
+            inactiveColor={dynamicColors.lineaInactiva}
           />
         );
       });
     });
 
     return connections;
-  }, [localMaterias, nodePositions]);
+  }, [localMaterias, nodePositions, dynamicColors.lineaInactiva]);
 
   // Loading
   if (loading) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <StatusBar barStyle="dark-content" backgroundColor={SIMULADOR_COLORS.background} />
-        <ActivityIndicator size="large" color={SIMULADOR_COLORS.pendiente} />
-        <Text style={styles.loadingText}>Cargando plan de estudios...</Text>
+      <View style={[styles.container, styles.centerContent, { backgroundColor: dynamicColors.background }]}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={dynamicColors.background} />
+        <ActivityIndicator size="large" color={dynamicColors.pendiente} />
+        <Text style={[styles.loadingText, { color: dynamicColors.textTertiary }]}>Cargando plan de estudios...</Text>
       </View>
     );
   }
@@ -482,14 +492,14 @@ export default function SimuladorScreen() {
   // Error
   if (error) {
     return (
-      <View style={[styles.container, styles.centerContent]}>
-        <StatusBar barStyle="dark-content" backgroundColor={SIMULADOR_COLORS.background} />
+      <View style={[styles.container, styles.centerContent, { backgroundColor: dynamicColors.background }]}>
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={dynamicColors.background} />
         <View style={styles.errorContainer}>
           <View style={styles.errorIcon}>
-            <Ionicons name="alert-circle" size={48} color={SIMULADOR_COLORS.regularizada} />
+            <Ionicons name="alert-circle" size={48} color={dynamicColors.regularizada} />
           </View>
-          <Text style={styles.errorTitle}>No se pudo cargar</Text>
-          <Text style={styles.errorText}>{error}</Text>
+          <Text style={[styles.errorTitle, { color: dynamicColors.textPrimary }]}>No se pudo cargar</Text>
+          <Text style={[styles.errorText, { color: dynamicColors.textTertiary }]}>{error}</Text>
           <Pressable style={styles.retryButton} onPress={refetch}>
             <Text style={styles.retryButtonText}>Reintentar</Text>
           </Pressable>
@@ -499,23 +509,23 @@ export default function SimuladorScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+    <View style={[styles.container, { backgroundColor: dynamicColors.background }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
 
       {/* Header con Blur */}
-      <BlurView intensity={80} tint="light" style={[styles.header, { paddingTop: insets.top }]}>
+      <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={[styles.header, { paddingTop: insets.top, borderBottomColor: dynamicColors.separator }]}>
         <View style={styles.headerContent}>
           <Pressable
             onPress={() => router.back()}
             style={styles.headerButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="chevron-back" size={28} color={SIMULADOR_COLORS.pendiente} />
+            <Ionicons name="chevron-back" size={28} color={dynamicColors.pendiente} />
           </Pressable>
 
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Simulador</Text>
-            <Text style={styles.headerSubtitle}>{localStats.total} materias</Text>
+            <Text style={[styles.headerTitle, { color: dynamicColors.textPrimary }]}>Simulador</Text>
+            <Text style={[styles.headerSubtitle, { color: dynamicColors.textTertiary }]}>{localStats.total} materias</Text>
           </View>
 
           <Pressable
@@ -523,15 +533,15 @@ export default function SimuladorScreen() {
             style={styles.headerButton}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="refresh" size={24} color={SIMULADOR_COLORS.pendiente} />
+            <Ionicons name="refresh" size={24} color={dynamicColors.pendiente} />
           </Pressable>
         </View>
 
-        <StatsBar stats={localStats} />
+        <StatsBar stats={localStats} isDark={isDark} />
 
         {/* Banner de simulación */}
         <View style={styles.simulationBanner}>
-          <Ionicons name="flask-outline" size={14} color={SIMULADOR_COLORS.regularizada} />
+          <Ionicons name="flask-outline" size={14} color={dynamicColors.regularizada} />
           <Text style={styles.simulationText}>Modo simulación · Los cambios no se guardan</Text>
         </View>
       </BlurView>
@@ -554,10 +564,13 @@ export default function SimuladorScreen() {
                 key={`level-${i + 1}`}
                 style={[
                   styles.levelLabel,
-                  { top: PADDING_Y + i * (NODE_SIZE + NODE_SPACING_Y) + NODE_SIZE / 2 - 12 }
+                  {
+                    top: PADDING_Y + i * (NODE_SIZE + NODE_SPACING_Y) + NODE_SIZE / 2 - 12,
+                    backgroundColor: dynamicColors.backgroundSecondary,
+                  }
                 ]}
               >
-                <Text style={styles.levelLabelText}>{i + 1}°</Text>
+                <Text style={[styles.levelLabelText, { color: dynamicColors.textTertiary }]}>{i + 1}°</Text>
               </View>
             ))}
 
@@ -583,6 +596,7 @@ export default function SimuladorScreen() {
                   top={pos.top}
                   onPress={() => handlePressNode(materia)}
                   onLongPress={() => handleLongPress(materia)}
+                  isDark={isDark}
                 />
               );
             })}
@@ -592,23 +606,23 @@ export default function SimuladorScreen() {
 
       {/* Leyenda flotante */}
       <View style={[styles.legend, { bottom: insets.bottom + 16 }]}>
-        <BlurView intensity={90} tint="light" style={styles.legendBlur}>
+        <BlurView intensity={90} tint={isDark ? 'dark' : 'light'} style={styles.legendBlur}>
           <View style={styles.legendContent}>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: SIMULADOR_COLORS.aprobada }]} />
-              <Text style={styles.legendText}>Aprobada</Text>
+              <Text style={[styles.legendText, { color: dynamicColors.textSecondary }]}>Aprobada</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: SIMULADOR_COLORS.regularizada }]} />
-              <Text style={styles.legendText}>Regular</Text>
+              <Text style={[styles.legendText, { color: dynamicColors.textSecondary }]}>Regular</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: SIMULADOR_COLORS.pendiente }]} />
-              <Text style={styles.legendText}>Disponible</Text>
+              <Text style={[styles.legendText, { color: dynamicColors.textSecondary }]}>Disponible</Text>
             </View>
             <View style={styles.legendItem}>
               <View style={[styles.legendDot, { backgroundColor: SIMULADOR_COLORS.bloqueada }]} />
-              <Text style={styles.legendText}>Bloqueada</Text>
+              <Text style={[styles.legendText, { color: dynamicColors.textSecondary }]}>Bloqueada</Text>
             </View>
           </View>
         </BlurView>
@@ -623,6 +637,7 @@ export default function SimuladorScreen() {
         overlayOpacity={overlayOpacity}
         onClose={closeSheet}
         onChangeEstado={handleSheetChangeEstado}
+        isDark={isDark}
       />
 
       <BlockedMateriaSheet
@@ -632,6 +647,7 @@ export default function SimuladorScreen() {
         sheetAnim={blockedSheetAnim}
         overlayOpacity={blockedOverlayOpacity}
         onClose={closeBlockedSheet}
+        isDark={isDark}
       />
     </View>
   );
@@ -640,7 +656,6 @@ export default function SimuladorScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: SIMULADOR_COLORS.background,
   },
   centerContent: {
     alignItems: 'center',
@@ -655,7 +670,7 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 100,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: SIMULADOR_COLORS.separator,
+    borderBottomColor: 'transparent',
   },
   headerContent: {
     flexDirection: 'row',
@@ -678,12 +693,10 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: SIMULADOR_COLORS.textPrimary,
     letterSpacing: -0.4,
   },
   headerSubtitle: {
     fontSize: 12,
-    color: SIMULADOR_COLORS.textTertiary,
     marginTop: 2,
   },
 
@@ -694,7 +707,6 @@ const styles = StyleSheet.create({
   },
   progressBarContainer: {
     height: 4,
-    backgroundColor: SIMULADOR_COLORS.backgroundTertiary,
     borderRadius: 2,
     overflow: 'hidden',
     marginBottom: 12,
@@ -722,12 +734,10 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 15,
     fontWeight: '600',
-    color: SIMULADOR_COLORS.textPrimary,
     marginRight: 4,
   },
   statLabel: {
     fontSize: 13,
-    color: SIMULADOR_COLORS.textTertiary,
   },
   percentageText: {
     fontSize: 17,
@@ -775,7 +785,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: SIMULADOR_COLORS.backgroundSecondary,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -787,7 +796,6 @@ const styles = StyleSheet.create({
   levelLabelText: {
     fontSize: 11,
     fontWeight: '600',
-    color: SIMULADOR_COLORS.textTertiary,
   },
 
   // Nodes
@@ -835,12 +843,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
-    backgroundColor: SIMULADOR_COLORS.backgroundTertiary,
   },
   levelText: {
     fontSize: 9,
     fontWeight: '600',
-    color: SIMULADOR_COLORS.textTertiary,
   },
 
   // Legend
@@ -874,14 +880,12 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 12,
     fontWeight: '500',
-    color: SIMULADOR_COLORS.textSecondary,
   },
 
   // Loading & Error
   loadingText: {
     marginTop: 16,
     fontSize: 15,
-    color: SIMULADOR_COLORS.textTertiary,
   },
   errorContainer: {
     alignItems: 'center',
@@ -899,12 +903,10 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: SIMULADOR_COLORS.textPrimary,
     marginBottom: 8,
   },
   errorText: {
     fontSize: 15,
-    color: SIMULADOR_COLORS.textTertiary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 24,

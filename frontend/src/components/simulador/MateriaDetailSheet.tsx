@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { MateriaSimulador } from '../../hooks/useSimuladorData';
-import { SIMULADOR_COLORS, getEstadoConfig, EstadoVisual } from '../../utils/estadoMapper';
+import { SIMULADOR_COLORS, getSimuladorColors, getEstadoConfig, EstadoVisual } from '../../utils/estadoMapper';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -26,6 +26,7 @@ interface MateriaDetailSheetProps {
   overlayOpacity: Animated.Value;
   onClose: () => void;
   onChangeEstado: (nuevoEstado: EstadoVisual) => void;
+  isDark: boolean;
 }
 
 export function MateriaDetailSheet({
@@ -36,8 +37,10 @@ export function MateriaDetailSheet({
   overlayOpacity,
   onClose,
   onChangeEstado,
+  isDark,
 }: MateriaDetailSheetProps) {
   const insets = useSafeAreaInsets();
+  const colors = getSimuladorColors(isDark);
 
   if (!visible || !materia) return null;
 
@@ -76,7 +79,7 @@ export function MateriaDetailSheet({
   return (
     <View style={styles.modalContainer} pointerEvents="box-none">
       <TouchableWithoutFeedback onPress={onClose}>
-        <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
+        <Animated.View style={[styles.overlay, { opacity: overlayOpacity, backgroundColor: colors.overlay }]}>
           <TouchableWithoutFeedback>
             <Animated.View
               style={[
@@ -85,22 +88,23 @@ export function MateriaDetailSheet({
                   transform: [{ translateY: sheetAnim }],
                   maxHeight: maxSheetHeight,
                   paddingBottom: Math.max(insets.bottom, 20) + 20,
+                  backgroundColor: colors.backgroundSecondary,
                 }
               ]}
             >
               {/* Handle */}
-              <View style={styles.handle} />
+              <View style={[styles.handle, { backgroundColor: colors.backgroundTertiary }]} />
 
               {/* Header */}
               <View style={styles.header}>
-                <Text style={styles.headerTitle}>Detalle</Text>
+                <Text style={[styles.headerTitle, { color: colors.textTertiary }]}>Detalle</Text>
                 <Pressable
                   onPress={onClose}
                   style={styles.closeButtonContainer}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <BlurView intensity={80} tint="light" style={styles.closeButtonBlur}>
-                    <Ionicons name="close" size={18} color={SIMULADOR_COLORS.textSecondary} />
+                  <BlurView intensity={80} tint={isDark ? 'dark' : 'light'} style={styles.closeButtonBlur}>
+                    <Ionicons name="close" size={18} color={colors.textSecondary} />
                   </BlurView>
                 </Pressable>
               </View>
@@ -117,27 +121,27 @@ export function MateriaDetailSheet({
                   <View style={[styles.estadoIndicator, { backgroundColor: estadoConfig.color }]}>
                     <Ionicons name={estadoConfig.iconFilled} size={20} color="#FFFFFF" />
                   </View>
-                  <Text style={styles.materiaNombre}>{materia.nombre}</Text>
+                  <Text style={[styles.materiaNombre, { color: colors.textPrimary }]}>{materia.nombre}</Text>
                   <View style={styles.metaRow}>
                     <View style={[styles.badge, { backgroundColor: estadoConfig.bgColor }]}>
                       <Text style={[styles.badgeText, { color: estadoConfig.color }]}>
                         {estadoConfig.label}
                       </Text>
                     </View>
-                    <Text style={styles.nivelText}>Año {materia.nivel}</Text>
+                    <Text style={[styles.nivelText, { color: colors.textTertiary }]}>Año {materia.nivel}</Text>
                   </View>
                 </View>
 
                 {/* Correlativas */}
-                <Text style={styles.sectionTitle}>Correlativas</Text>
+                <Text style={[styles.sectionTitle, { color: colors.textTertiary }]}>Correlativas</Text>
 
                 {correlativas.length === 0 ? (
                   <View style={styles.emptyState}>
                     <View style={styles.emptyIcon}>
                       <Ionicons name="checkmark-circle" size={32} color={SIMULADOR_COLORS.aprobada} />
                     </View>
-                    <Text style={styles.emptyTitle}>Sin requisitos</Text>
-                    <Text style={styles.emptyText}>
+                    <Text style={[styles.emptyTitle, { color: colors.textPrimary }]}>Sin requisitos</Text>
+                    <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
                       Esta materia no tiene correlativas previas
                     </Text>
                   </View>
@@ -152,9 +156,9 @@ export function MateriaDetailSheet({
                           </Text>
                         </View>
                         {correlativasFaltantes.map(c => (
-                          <View key={c.id} style={styles.correlativaItem}>
+                          <View key={c.id} style={[styles.correlativaItem, { backgroundColor: colors.background }]}>
                             <View style={[styles.correlativaDot, { backgroundColor: getEstadoConfig(c.estado).color }]} />
-                            <Text style={styles.correlativaText} numberOfLines={1}>{c.nombre}</Text>
+                            <Text style={[styles.correlativaText, { color: colors.textPrimary }]} numberOfLines={1}>{c.nombre}</Text>
                             <Text style={[styles.correlativaEstado, { color: getEstadoConfig(c.estado).color }]}>
                               {getEstadoConfig(c.estado).labelShort}
                             </Text>
@@ -172,9 +176,9 @@ export function MateriaDetailSheet({
                           </Text>
                         </View>
                         {correlativasCumplidas.map(c => (
-                          <View key={c.id} style={styles.correlativaItem}>
+                          <View key={c.id} style={[styles.correlativaItem, { backgroundColor: colors.background }]}>
                             <View style={[styles.correlativaDot, { backgroundColor: getEstadoConfig(c.estado).color }]} />
-                            <Text style={styles.correlativaText} numberOfLines={1}>{c.nombre}</Text>
+                            <Text style={[styles.correlativaText, { color: colors.textPrimary }]} numberOfLines={1}>{c.nombre}</Text>
                             <Text style={[styles.correlativaEstado, { color: getEstadoConfig(c.estado).color }]}>
                               {getEstadoConfig(c.estado).labelShort}
                             </Text>
@@ -187,7 +191,7 @@ export function MateriaDetailSheet({
               </ScrollView>
 
               {/* Actions - Fixed at bottom */}
-              <View style={styles.actionsContainer}>
+              <View style={[styles.actionsContainer, { borderTopColor: colors.separator }]}>
                 {materia.estado !== 'bloqueada' && (
                   <View style={styles.actions}>
                     {materia.estado !== 'aprobada' && (
@@ -212,11 +216,11 @@ export function MateriaDetailSheet({
 
                     {(materia.estado === 'aprobada' || materia.estado === 'regularizada') && (
                       <Pressable
-                        style={[styles.actionButton, styles.resetButton]}
+                        style={[styles.actionButton, { backgroundColor: colors.background }]}
                         onPress={handlePendiente}
                       >
-                        <Ionicons name="refresh" size={20} color={SIMULADOR_COLORS.textSecondary} />
-                        <Text style={[styles.actionButtonText, { color: SIMULADOR_COLORS.textSecondary }]}>
+                        <Ionicons name="refresh" size={20} color={colors.textSecondary} />
+                        <Text style={[styles.actionButtonText, { color: colors.textSecondary }]}>
                           Resetear
                         </Text>
                       </Pressable>
@@ -225,9 +229,9 @@ export function MateriaDetailSheet({
                 )}
 
                 {materia.estado === 'bloqueada' && (
-                  <View style={styles.blockedMessage}>
-                    <Ionicons name="lock-closed" size={18} color={SIMULADOR_COLORS.textTertiary} />
-                    <Text style={styles.blockedText}>
+                  <View style={[styles.blockedMessage, { backgroundColor: colors.background }]}>
+                    <Ionicons name="lock-closed" size={18} color={colors.textTertiary} />
+                    <Text style={[styles.blockedText, { color: colors.textTertiary }]}>
                       Completa las correlativas para desbloquear
                     </Text>
                   </View>
@@ -249,11 +253,9 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: SIMULADOR_COLORS.overlay,
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: SIMULADOR_COLORS.backgroundSecondary,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 8,
@@ -263,7 +265,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 5,
     borderRadius: 3,
-    backgroundColor: SIMULADOR_COLORS.backgroundTertiary,
     alignSelf: 'center',
     marginBottom: 12,
   },
@@ -277,7 +278,6 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: SIMULADOR_COLORS.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -314,7 +314,6 @@ const styles = StyleSheet.create({
   materiaNombre: {
     fontSize: 20,
     fontWeight: '600',
-    color: SIMULADOR_COLORS.textPrimary,
     textAlign: 'center',
     marginBottom: 12,
     letterSpacing: -0.4,
@@ -335,18 +334,15 @@ const styles = StyleSheet.create({
   },
   nivelText: {
     fontSize: 14,
-    color: SIMULADOR_COLORS.textTertiary,
   },
   actionsContainer: {
     paddingHorizontal: 20,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: SIMULADOR_COLORS.separator,
   },
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: SIMULADOR_COLORS.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 12,
@@ -367,12 +363,10 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: SIMULADOR_COLORS.textPrimary,
     marginBottom: 4,
   },
   emptyText: {
     fontSize: 14,
-    color: SIMULADOR_COLORS.textTertiary,
     textAlign: 'center',
   },
   correlativasSection: {
@@ -391,7 +385,6 @@ const styles = StyleSheet.create({
   correlativaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: SIMULADOR_COLORS.background,
     padding: 14,
     borderRadius: 12,
     marginBottom: 8,
@@ -405,7 +398,6 @@ const styles = StyleSheet.create({
   correlativaText: {
     flex: 1,
     fontSize: 15,
-    color: SIMULADOR_COLORS.textPrimary,
   },
   correlativaEstado: {
     fontSize: 13,
@@ -425,9 +417,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     gap: 8,
   },
-  resetButton: {
-    backgroundColor: SIMULADOR_COLORS.background,
-  },
+  resetButton: {},
   actionButtonText: {
     fontSize: 16,
     fontWeight: '600',
@@ -437,7 +427,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: SIMULADOR_COLORS.background,
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderRadius: 14,
@@ -445,6 +434,5 @@ const styles = StyleSheet.create({
   },
   blockedText: {
     fontSize: 14,
-    color: SIMULADOR_COLORS.textTertiary,
   },
 });

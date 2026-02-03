@@ -74,27 +74,30 @@ export function useMateriasTemasFinales(): UseMateriasTemasFinalesReturn {
                 m.numero <= 36
             );
 
-            const materiasConStats: MateriaConTemas[] = await Promise.all(
-                materiasDelPlan.map(async (m: any) => {
-                    let totalTemas = 0;
-
-                    try {
-                        const stats = await temasFinalesApi.getEstadisticasMateria(m.id);
-                        totalTemas = Array.isArray(stats) ? stats.reduce((sum: number, s: any) => sum + (s.veces || 0), 0) : 0;
-                    } catch (e) {
-                        console.warn(`Error cargando stats temas para materia ${m.id}:`, e);
+            // Cargar todos los temas de una sola vez y contar por materia
+            let temasPorMateria = new Map<number, number>();
+            try {
+                const allTemas = await temasFinalesApi.getAll();
+                if (Array.isArray(allTemas)) {
+                    for (const tema of allTemas) {
+                        const mid = tema.materiaId;
+                        if (mid) {
+                            temasPorMateria.set(mid, (temasPorMateria.get(mid) || 0) + 1);
+                        }
                     }
+                }
+            } catch (e) {
+                // Si el endpoint no está disponible, dejamos el conteo en 0
+            }
 
-                    return {
-                        id: m.id,
-                        numero: m.numero,
-                        nombre: m.nombre,
-                        nivel: m.nivel,
-                        nivelNumero: nivelToNumber(m.nivel),
-                        totalTemas,
-                    };
-                })
-            );
+            const materiasConStats: MateriaConTemas[] = materiasDelPlan.map((m: any) => ({
+                id: m.id,
+                numero: m.numero,
+                nombre: m.nombre,
+                nivel: m.nivel,
+                nivelNumero: nivelToNumber(m.nivel),
+                totalTemas: temasPorMateria.get(m.id) || 0,
+            }));
 
             materiasConStats.sort((a, b) => a.numero - b.numero);
 
