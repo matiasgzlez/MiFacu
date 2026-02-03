@@ -6,7 +6,7 @@ import { Colors } from '../../src/constants/theme';
 import { useTheme } from '../../src/context/ThemeContext';
 import * as Haptics from 'expo-haptics';
 
-type TabIconName = 'home' | 'home-outline' | 'book' | 'book-outline' | 'construct' | 'construct-outline' | 'person' | 'person-outline';
+type TabIconName = 'home' | 'home-outline' | 'book' | 'book-outline' | 'construct' | 'construct-outline' | 'paw' | 'paw-outline' | 'person' | 'person-outline';
 
 export default function TabsLayout() {
   const { colorScheme, isDark } = useTheme();
@@ -79,6 +79,19 @@ export default function TabsLayout() {
           tabBarIcon: ({ focused, color, size }) => (
             <Ionicons
               name={focused ? 'construct' : 'construct-outline'}
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="milo"
+        options={{
+          title: 'Milo',
+          tabBarIcon: ({ focused, color, size }) => (
+            <Ionicons
+              name={focused ? 'paw' : 'paw-outline'}
               size={size}
               color={color}
             />
