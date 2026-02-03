@@ -44,9 +44,19 @@ export class MateriasService {
         return materia;
     }
 
-    async getAllMaterias(): Promise<Materia[]> {
-        return await this.materiaRepository.find({
-            relations: ['recordatorios', 'finales', 'correlativas'],
-        });
+    async getAllMaterias(carreraId?: string): Promise<Materia[]> {
+        const query = this.materiaRepository.createQueryBuilder('materia')
+            .leftJoinAndSelect('materia.recordatorios', 'recordatorios')
+            .leftJoinAndSelect('materia.finales', 'finales')
+            .leftJoinAndSelect('materia.correlativas', 'correlativas');
+
+        if (carreraId) {
+            query.where('materia.carrera_id = :carreraId', { carreraId });
+        }
+
+        return await query
+            .orderBy('materia.nivel', 'ASC')
+            .addOrderBy('materia.numero', 'ASC')
+            .getMany();
     }
 }

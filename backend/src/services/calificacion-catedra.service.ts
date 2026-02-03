@@ -24,7 +24,10 @@ export class CalificacionCatedraService {
         return await this.calificacionRepository.find({
             where: whereClause,
             relations: ['materia', 'user'],
-            order: { createdAt: 'DESC' },
+            order: {
+                esAnonimo: 'ASC',  // Verificados (false) primero, luego anónimos (true)
+                createdAt: 'DESC'
+            },
         });
     }
 

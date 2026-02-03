@@ -1,6 +1,7 @@
 import { Repository } from 'typeorm';
 import { AppDataSource } from '../config/DataSource';
 import { Final } from '../models/finales.model';
+import { User } from '../models/user.model';
 import { MateriasService } from './materias.service';
 import { AppError } from '../middleware/errorHandler.middleware';
 
@@ -14,10 +15,16 @@ export class FinalesService {
     }
 
     async getAllFinales(userId: string): Promise<Final[]> {
-        return await this.finalRepository.find({
-            where: { userId },
-            relations: ['materia'],
-        });
+        const userRepo = AppDataSource.getRepository(User);
+        const user = await userRepo.findOne({ where: { id: userId }, select: ['carreraId'] });
+
+        if (!user || !user.carreraId) return [];
+
+        return await this.finalRepository.createQueryBuilder('f')
+            .leftJoinAndSelect('f.materia', 'm')
+            .where('f.userId = :userId', { userId })
+            .andWhere('m.carrera_id = :carreraId', { carreraId: user.carreraId })
+            .getMany();
     }
 
     async getFinalById(id: number, userId: string): Promise<Final> {

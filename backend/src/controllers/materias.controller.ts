@@ -10,7 +10,8 @@ export class MateriasController {
     }
 
     getMaterias = asyncHandler(async (req: Request, res: Response) => {
-        const materias = await this.materiasService.getAllMaterias();
+        const { carreraId } = req.query;
+        const materias = await this.materiasService.getAllMaterias(carreraId as string);
         res.status(200).json({
             status: 'success',
             data: materias,

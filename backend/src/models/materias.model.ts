@@ -1,21 +1,29 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToMany, JoinTable } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToMany, JoinTable, ManyToOne, JoinColumn } from "typeorm";
 import { Recordatorio } from "./recordatorios.model";
 import { Final } from "./finales.model";
 import { UsuarioMateria } from "./usuario-materias.model";
 import { Duración } from '../types/materias';
+import { Carrera } from "./carrera.model";
 
 @Entity('materias')
 export class Materia {
     @PrimaryGeneratedColumn()
     id!: number;
 
-    @Column({ name: 'numero', type: 'int', unique: true, nullable: true })
+    @Column({ name: 'carrera_id', type: 'uuid', nullable: true })
+    carreraId?: string;
+
+    @ManyToOne(() => Carrera, (carrera) => carrera.materias)
+    @JoinColumn({ name: 'carrera_id' })
+    carrera!: Carrera;
+
+    @Column({ name: 'numero', type: 'int', nullable: true })
     numero!: number; // Corresponde al N° del PDF (1-36)
 
     @Column({ name: 'nivel', type: 'varchar', length: 10, nullable: true })
     nivel!: string; // I, II, III, IV, V
 
-    @Column({ name: 'nombre', type: 'varchar', length: 150, unique: true, nullable: true })
+    @Column({ name: 'nombre', type: 'varchar', length: 150, nullable: true })
     nombre?: string;
 
     @Column({ name: 'duración', type: 'enum', enum: Duración, nullable: true })

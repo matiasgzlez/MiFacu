@@ -15,6 +15,9 @@ import syncRoutes from './routes/sync.routes';
 import linksRoutes from './routes/links.routes';
 import correlativasRoutes from './routes/correlativas.routes';
 import calificacionesCatedrasRoutes from './routes/calificaciones-catedras.routes';
+import comentariosCalificacionesRoutes from './routes/comentarios-calificaciones.routes';
+import carrerasRoutes from './routes/carreras.routes';
+import usersRoutes from './routes/users.routes';
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -28,6 +31,10 @@ app.use(cors({
 app.use(express.json());
 
 // Routes
+app.get('/debug-check', (req, res) => {
+    res.json({ status: 'ok', version: 'multi-career-v1', time: new Date().toISOString() });
+});
+
 app.use("/materias", materiasRoutes);
 app.use("/recordatorios", recordatoriosRoutes);
 app.use("/finales", finalesRoutes);
@@ -36,6 +43,9 @@ app.use("/sync", syncRoutes);
 app.use("/links", linksRoutes);
 app.use("/correlativas", correlativasRoutes);
 app.use("/calificaciones-catedras", calificacionesCatedrasRoutes);
+app.use("/comentarios-calificaciones", comentariosCalificacionesRoutes);
+app.use("/carreras", carrerasRoutes);
+app.use("/users", usersRoutes);
 
 app.get('/', (req, res) => {
     res.status(200).send('MiFacu Backend is running');

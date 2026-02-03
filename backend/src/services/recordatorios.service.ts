@@ -1,6 +1,7 @@
 import { Repository } from 'typeorm';
 import { AppDataSource } from '../config/DataSource';
 import { Recordatorio } from '../models/recordatorios.model';
+import { User } from '../models/user.model';
 import { MateriasService } from './materias.service';
 import { AppError } from '../middleware/errorHandler.middleware';
 import { TipoRecordatorio } from '../types/recordatorios';
@@ -15,10 +16,21 @@ export class RecordatoriosService {
     }
 
     async getAllRecordatorios(userId: string): Promise<Recordatorio[]> {
-        return await this.recordatorioRepository.find({
-            where: { userId },
-            relations: ['materia'],
-        });
+        // Obtenemos el perfil para saber la carrera
+        const userRepo = AppDataSource.getRepository(User);
+        const user = await userRepo.findOne({ where: { id: userId }, select: ['carreraId'] });
+
+        const query = this.recordatorioRepository.createQueryBuilder('r')
+            .leftJoinAndSelect('r.materia', 'm')
+            .where('r.userId = :userId', { userId });
+
+        if (user?.carreraId) {
+            // Filtramos por carrera si el recordatorio tiene materia
+            // Los recordatorios sin materia (globales) se muestran siempre
+            query.andWhere('(m.carrera_id = :carreraId OR m.id IS NULL)', { carreraId: user.carreraId });
+        }
+
+        return await query.getMany();
     }
 
     async getRecordatorioById(id: number, userId: string): Promise<Recordatorio> {

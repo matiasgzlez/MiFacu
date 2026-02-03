@@ -2,25 +2,40 @@ import { Repository } from 'typeorm';
 import { AppDataSource } from '../config/DataSource';
 import { UsuarioMateria } from '../models/usuario-materias.model';
 import { Materia } from '../models/materias.model';
+import { User } from '../models/user.model';
 import { EstadoMateriaUsuario } from '../types/materias';
 import { AppError } from '../middleware/errorHandler.middleware';
 
 export class UsuarioMateriasService {
     private usuarioMateriaRepository: Repository<UsuarioMateria>;
     private materiaRepository: Repository<Materia>;
+    private userRepository: Repository<User>;
 
     constructor() {
         this.usuarioMateriaRepository = AppDataSource.getRepository(UsuarioMateria);
         this.materiaRepository = AppDataSource.getRepository(Materia);
+        this.userRepository = AppDataSource.getRepository(User);
     }
 
-    // Obtener todas las materias de un usuario
+    // Obtener todas las materias de un usuario (filtradas por su carrera actual)
     async getMateriasByUsuario(usuarioId: string): Promise<UsuarioMateria[]> {
-        return await this.usuarioMateriaRepository.find({
-            where: { usuarioId },
-            relations: ['materia'],
-            order: { materia: { numero: 'ASC' } }
+        // 1. Obtener la carrera del usuario
+        const user = await this.userRepository.findOne({
+            where: { id: usuarioId },
+            select: ['id', 'carreraId']
         });
+
+        if (!user || !user.carreraId) {
+            return [];
+        }
+
+        // 2. Obtener materias del usuario que pertenecen a esa carrera
+        return await this.usuarioMateriaRepository.createQueryBuilder('um')
+            .leftJoinAndSelect('um.materia', 'materia')
+            .where('um.usuarioId = :usuarioId', { usuarioId })
+            .andWhere('materia.carrera_id = :carreraId', { carreraId: user.carreraId })
+            .orderBy('materia.numero', 'ASC')
+            .getMany();
     }
 
     // Agregar una materia a un usuario
@@ -107,8 +122,20 @@ export class UsuarioMateriasService {
         await this.usuarioMateriaRepository.remove(usuarioMateria);
     }
 
-    // Obtener materias disponibles para un usuario (todas menos las que ya tiene)
+    // Obtener materias disponibles para un usuario (todas menos las que ya tiene, filtradas por carrera)
     async getMateriasDisponibles(usuarioId: string): Promise<Materia[]> {
+        // 1. Obtener la carrera del usuario
+        const user = await this.userRepository.findOne({
+            where: { id: usuarioId },
+            select: ['id', 'carreraId']
+        });
+
+        if (!user || !user.carreraId) {
+            // Si el usuario no tiene carrera asignada (caso fallback), no devolvemos nada o devolvemos un error
+            return [];
+        }
+
+        // 2. Obtener materias que ya tiene el usuario
         const usuarioMaterias = await this.usuarioMateriaRepository.find({
             where: { usuarioId },
             select: ['materiaId']
@@ -116,10 +143,13 @@ export class UsuarioMateriasService {
 
         const materiaIdsUsuario = usuarioMaterias.map(um => um.materiaId);
 
+        // 3. Consultar materias de SU carrera que NO tenga ya
         const query = this.materiaRepository.createQueryBuilder('materia');
 
+        query.where('materia.carrera_id = :carreraId', { carreraId: user.carreraId });
+
         if (materiaIdsUsuario.length > 0) {
-            query.where('materia.id NOT IN (:...ids)', { ids: materiaIdsUsuario });
+            query.andWhere('materia.id NOT IN (:...ids)', { ids: materiaIdsUsuario });
         }
 
         return await query.orderBy('materia.numero', 'ASC').getMany();
