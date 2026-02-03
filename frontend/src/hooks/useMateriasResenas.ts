@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { materiasApi, calificacionesApi } from '../services/api';
+import { materiasApi, calificacionesApi, usersApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
 // Tipos
@@ -65,8 +65,19 @@ export function useMateriasResenas(): UseMateriasResenasReturn {
         try {
             setError(null);
 
-            // 1. Cargar todas las materias del plan
-            const todasMaterias = await materiasApi.getMaterias();
+            // 0. Obtener carreraId del usuario
+            let carreraId: string | null = null;
+            if (user?.id) {
+                try {
+                    const profile = await usersApi.getProfile(user.id);
+                    carreraId = profile.carreraId || null;
+                } catch (e) {
+                    console.warn('No se pudo obtener el perfil del usuario:', e);
+                }
+            }
+
+            // 1. Cargar materias de la carrera del usuario (o todas si no tiene carrera)
+            const todasMaterias = await materiasApi.getMaterias(carreraId);
 
             // Filtrar solo materias del plan (nivel I-V y numero 1-36)
             const nivelesValidos = ['I', 'II', 'III', 'IV', 'V'];
@@ -117,7 +128,7 @@ export function useMateriasResenas(): UseMateriasResenasReturn {
             setLoading(false);
             setRefreshing(false);
         }
-    }, []);
+    }, [user?.id]);
 
     /**
      * Materias filtradas y ordenadas según los filtros actuales

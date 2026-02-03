@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -68,6 +68,20 @@ export function CalificacionCard({
     const [comentarios, setComentarios] = useState<ComentarioCalificacion[]>([]);
     const [loadingComentarios, setLoadingComentarios] = useState(false);
     const [comentariosCount, setComentariosCount] = useState(0);
+
+    // Cargar count de comentarios al montar
+    useEffect(() => {
+        let cancelled = false;
+        comentariosApi.getCount(calificacion.id)
+            .then((result: any) => {
+                if (!cancelled) {
+                    const count = typeof result === 'number' ? result : (result?.count ?? 0);
+                    setComentariosCount(count);
+                }
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [calificacion.id]);
 
     const ratingColor = getRatingColor(Number(calificacion.rating) || 0, theme);
     const dificultadLabel = DIFICULTAD_LABELS[calificacion.dificultad];

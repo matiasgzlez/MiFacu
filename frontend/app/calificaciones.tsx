@@ -9,6 +9,7 @@ import {
     FlatList,
     RefreshControl,
     ActivityIndicator,
+    KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -153,7 +154,11 @@ export default function CalificacionesScreen() {
     );
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.background }]}>
+        <KeyboardAvoidingView
+            style={[styles.container, { backgroundColor: theme.background }]}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        >
             <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
             {/* Header con blur */}
@@ -195,6 +200,8 @@ export default function CalificacionesScreen() {
                     calificaciones.length === 0 && styles.listContentEmpty,
                 ]}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="interactive"
                 ListHeaderComponent={calificaciones.length > 0 ? ListHeader : null}
                 ListEmptyComponent={() => (
                     loading && !refreshing ? (
@@ -246,7 +253,7 @@ export default function CalificacionesScreen() {
                 onSubmit={handleSubmitReporte}
                 theme={theme}
             />
-        </View>
+        </KeyboardAvoidingView>
     );
 }
 

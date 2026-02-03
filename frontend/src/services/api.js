@@ -248,5 +248,70 @@ export const comentariosApi = {
     }
 };
 
+// API de Pomodoro
+export const pomodoroApi = {
+    complete: async (data) => {
+        const response = await api.post('/pomodoro', data);
+        return response.data.data || response.data;
+    },
+    getStats: async (userId) => {
+        const response = await api.get(`/pomodoro/stats/${userId}`);
+        return response.data.data || response.data;
+    },
+    getHistory: async (userId) => {
+        const response = await api.get(`/pomodoro/history/${userId}`);
+        return response.data.data || response.data;
+    },
+};
+
+// API de Gamificación
+export const gamificationApi = {
+    getProfile: async (userId) => {
+        const response = await api.get(`/gamification/${userId}`);
+        return response.data.data || response.data;
+    },
+    completeSession: async (data) => {
+        const response = await api.post('/gamification/complete-session', data);
+        return response.data.data || response.data;
+    },
+};
+
+// API de Temas de Finales (La Fija)
+export const temasFinalesApi = {
+    getAll: async (materiaId = null) => {
+        const params = materiaId ? `?materiaId=${materiaId}` : '';
+        const response = await api.get(`/temas-finales${params}`);
+        return response.data.data || response.data;
+    },
+    getById: async (id) => {
+        const response = await api.get(`/temas-finales/${id}`);
+        return response.data.data || response.data;
+    },
+    create: async (data) => {
+        const response = await api.post('/temas-finales', data);
+        return response.data.data || response.data;
+    },
+    update: async (id, data) => {
+        const response = await api.put(`/temas-finales/${id}`, data);
+        return response.data.data || response.data;
+    },
+    delete: async (id) => {
+        await api.delete(`/temas-finales/${id}`);
+        return true;
+    },
+    votar: async (id, tipo) => {
+        const response = await api.post(`/temas-finales/${id}/voto`, { tipo });
+        return response.data.data || response.data;
+    },
+    reportar: async (id, motivo) => {
+        const response = await api.post(`/temas-finales/${id}/reportar`, { motivo });
+        return response.data;
+    },
+    getEstadisticasMateria: async (materiaId) => {
+        const response = await api.get(`/temas-finales/materia/${materiaId}/estadisticas`);
+        return response.data.data || response.data;
+    },
+};
+
 // Exportar objeto api por defecto o como nombrado
 export default api;
