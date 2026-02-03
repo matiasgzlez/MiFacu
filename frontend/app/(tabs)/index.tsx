@@ -58,6 +58,9 @@ const AVAILABLE_SHORTCUTS = [
   { id: 'simulador', icon: 'analytics', label: 'Simulador', subtitle: 'Planifica tu carrera', color: 'red', route: '/simulador' },
   { id: 'horarios', icon: 'calendar', label: 'Horarios', subtitle: 'Ver clases', color: 'green', route: '/horarios' },
   { id: 'repositorio', icon: 'folder', label: 'Repositorio', subtitle: 'Links y recursos', color: 'slate', route: '/repositorio' },
+  { id: 'calificaciones', icon: 'chatbubbles', label: 'Reseñas', subtitle: 'Opiniones de cátedras', color: 'tint', route: '/selectMateria' },
+  { id: 'timeline', icon: 'calendar-outline', label: 'Calendario', subtitle: 'Visión del cuatrimestre', color: 'tint', route: '/linea-de-tiempo' },
+  { id: 'temas-finales', icon: 'document-text', label: 'Temas Finales', subtitle: 'Temas de mesas', color: 'orange', route: '/selectMateriaFija' },
 ] as const;
 
 type ShortcutId = typeof AVAILABLE_SHORTCUTS[number]['id'];

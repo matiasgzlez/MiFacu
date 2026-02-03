@@ -33,6 +33,8 @@ const TOOLS: ToolItem[] = [
   { id: 'parciales', icon: 'calendar', label: 'Parciales/Entregas', subtitle: 'Seguimiento de parciales y entregas', color: 'orange', route: '/parciales' },
   { id: 'horarios', icon: 'time', label: 'Horarios', subtitle: 'Ver horarios de cursada', color: 'green', route: '/horarios' },
   { id: 'repositorio', icon: 'folder-open', label: 'Repositorio', subtitle: 'Links y recursos útiles', color: 'slate', route: '/repositorio' },
+  { id: 'timeline', icon: 'calendar', label: 'Calendario', subtitle: 'Visión del cuatrimestre', color: 'tint', route: '/linea-de-tiempo' },
+  { id: 'temas-finales', icon: 'document-text', label: 'Temas de Finales', subtitle: 'Temas frecuentes en mesas de final', color: 'orange', route: '/selectMateriaFija' },
 ];
 
 const AnimatedItem = ({ children, index }: { children: React.ReactNode; index: number }) => {

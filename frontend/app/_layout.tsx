@@ -80,6 +80,9 @@ function RootNavigator() {
         <Stack.Screen name="selectMateria" options={{ presentation: 'card' }} />
         <Stack.Screen name="detalle-materia" options={{ presentation: 'card' }} />
         <Stack.Screen name="plan-estudios" options={{ presentation: 'card' }} />
+        <Stack.Screen name="linea-de-tiempo" options={{ presentation: 'card' }} />
+        <Stack.Screen name="selectMateriaFija" options={{ presentation: 'card' }} />
+        <Stack.Screen name="temas-finales" options={{ presentation: 'card' }} />
 
         {/* Legacy routes */}
         <Stack.Screen name="mis-materias" options={{ presentation: 'card' }} />
