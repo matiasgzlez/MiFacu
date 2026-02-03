@@ -27,3 +27,16 @@ export interface Stats {
   totalPlan: number;
   noCursadas: number;
 }
+
+export interface Universidad {
+  id: string;
+  nombre: string;
+  abreviatura?: string;
+}
+
+export interface Carrera {
+  id: string;
+  universidadId: string;
+  nombre: string;
+  universidad?: Universidad;
+}

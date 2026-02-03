@@ -1,10 +1,13 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { StarRating } from './StarRating';
+import { ComentariosSection } from './ComentariosSection';
+import { comentariosApi } from '../../services/api';
 import {
     CalificacionCatedra,
+    ComentarioCalificacion,
     TipoVoto,
     DIFICULTAD_LABELS,
     DIFICULTAD_COLORS,
@@ -61,6 +64,11 @@ export function CalificacionCard({
     onPress,
     isOwner = false,
 }: CalificacionCardProps) {
+    const [showComentarios, setShowComentarios] = useState(false);
+    const [comentarios, setComentarios] = useState<ComentarioCalificacion[]>([]);
+    const [loadingComentarios, setLoadingComentarios] = useState(false);
+    const [comentariosCount, setComentariosCount] = useState(0);
+
     const ratingColor = getRatingColor(Number(calificacion.rating) || 0, theme);
     const dificultadLabel = DIFICULTAD_LABELS[calificacion.dificultad];
     const dificultadColor = DIFICULTAD_COLORS[calificacion.dificultad];
@@ -78,6 +86,38 @@ export function CalificacionCard({
         onReportar(calificacion.id);
     };
 
+    const loadComentarios = useCallback(async () => {
+        if (loadingComentarios) return;
+        try {
+            setLoadingComentarios(true);
+            const data = await comentariosApi.getByCalificacion(calificacion.id);
+            setComentarios(data);
+            setComentariosCount(data.length);
+        } catch (error) {
+            console.error('Error loading comentarios:', error);
+        } finally {
+            setLoadingComentarios(false);
+        }
+    }, [calificacion.id, loadingComentarios]);
+
+    const handleToggleComentarios = useCallback(() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (!showComentarios && comentarios.length === 0) {
+            loadComentarios();
+        }
+        setShowComentarios(!showComentarios);
+    }, [showComentarios, comentarios.length, loadComentarios]);
+
+    const handleComentarioAdded = useCallback((comentario: ComentarioCalificacion) => {
+        setComentarios(prev => [comentario, ...prev]);
+        setComentariosCount(prev => prev + 1);
+    }, []);
+
+    const handleComentarioDeleted = useCallback((id: number) => {
+        setComentarios(prev => prev.filter(c => c.id !== id));
+        setComentariosCount(prev => Math.max(0, prev - 1));
+    }, []);
+
     return (
         <View>
             <TouchableOpacity
@@ -90,22 +130,46 @@ export function CalificacionCard({
                 <View style={[styles.leftStrip, { backgroundColor: ratingColor }]} />
 
                 <View style={styles.content}>
-                    {/* Header row */}
+                    {/* User row - estilo Twitter/Instagram */}
+                    <View style={styles.userRow}>
+                        {calificacion.esVerificado && calificacion.user?.avatarUrl ? (
+                            <Image
+                                source={{ uri: calificacion.user.avatarUrl }}
+                                style={styles.avatarImage}
+                            />
+                        ) : (
+                            <View style={[styles.avatarContainer, { backgroundColor: calificacion.esVerificado ? theme.tint + '20' : theme.separator }]}>
+                                <Ionicons
+                                    name={calificacion.esVerificado ? "person" : "person-outline"}
+                                    size={16}
+                                    color={calificacion.esVerificado ? theme.tint : theme.icon}
+                                />
+                            </View>
+                        )}
+                        <View style={styles.userInfo}>
+                            <View style={styles.userNameRow}>
+                                <Text style={[styles.userName, { color: theme.text }]} numberOfLines={1}>
+                                    {calificacion.esVerificado && calificacion.user?.nombre
+                                        ? calificacion.user.nombre
+                                        : 'Anónimo'}
+                                </Text>
+                                {calificacion.esVerificado && (
+                                    <Ionicons name="checkmark-circle" size={14} color={theme.tint} />
+                                )}
+                            </View>
+                            <Text style={[styles.fecha, { color: theme.icon }]}>{fechaRelativa}</Text>
+                        </View>
+                    </View>
+
+                    {/* Header row - badges */}
                     <View style={styles.headerRow}>
                         <View style={styles.headerLeft}>
-                            {calificacion.esVerificado && (
-                                <View style={[styles.verifiedBadge, { backgroundColor: theme.tint + '15' }]}>
-                                    <Ionicons name="checkmark-circle" size={12} color={theme.tint} />
-                                    <Text style={[styles.verifiedText, { color: theme.tint }]}>Verificado</Text>
-                                </View>
-                            )}
                             <View style={[styles.dificultadBadge, { backgroundColor: dificultadColor + '15' }]}>
                                 <Text style={[styles.dificultadText, { color: dificultadColor }]}>
                                     {dificultadLabel}
                                 </Text>
                             </View>
                         </View>
-                        <Text style={[styles.fecha, { color: theme.icon }]}>{fechaRelativa}</Text>
                     </View>
 
                     {/* Materia + Profesor */}
@@ -182,6 +246,32 @@ export function CalificacionCard({
                             </Text>
                         </TouchableOpacity>
 
+                        {/* Boton Comentarios */}
+                        <TouchableOpacity
+                            style={[
+                                styles.actionButton,
+                                showComentarios && { backgroundColor: theme.tint + '15' },
+                            ]}
+                            onPress={handleToggleComentarios}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons
+                                name={showComentarios ? 'chatbubble' : 'chatbubble-outline'}
+                                size={16}
+                                color={showComentarios ? theme.tint : theme.icon}
+                            />
+                            {comentariosCount > 0 && (
+                                <Text
+                                    style={[
+                                        styles.actionText,
+                                        { color: showComentarios ? theme.tint : theme.icon },
+                                    ]}
+                                >
+                                    {comentariosCount}
+                                </Text>
+                            )}
+                        </TouchableOpacity>
+
                         {!isOwner && (
                             <TouchableOpacity
                                 style={styles.actionButton}
@@ -192,6 +282,20 @@ export function CalificacionCard({
                             </TouchableOpacity>
                         )}
                     </View>
+
+                    {/* Seccion de comentarios expandible */}
+                    {showComentarios && (
+                        <View style={[styles.comentariosContainer, { borderTopColor: theme.separator }]}>
+                            <ComentariosSection
+                                calificacionId={calificacion.id}
+                                comentarios={comentarios}
+                                onComentarioAdded={handleComentarioAdded}
+                                onComentarioDeleted={handleComentarioDeleted}
+                                theme={theme}
+                                loading={loadingComentarios}
+                            />
+                        </View>
+                    )}
                 </View>
             </TouchableOpacity>
         </View>
@@ -218,6 +322,36 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 14,
     },
+    userRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10,
+        gap: 10,
+    },
+    avatarContainer: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarImage: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+    },
+    userInfo: {
+        flex: 1,
+    },
+    userNameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    userName: {
+        fontSize: 15,
+        fontWeight: '600',
+    },
     headerRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -228,18 +362,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-    },
-    verifiedBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 6,
-        gap: 4,
-    },
-    verifiedText: {
-        fontSize: 11,
-        fontWeight: '600',
     },
     dificultadBadge: {
         paddingHorizontal: 8,
@@ -299,5 +421,10 @@ const styles = StyleSheet.create({
     actionText: {
         fontSize: 13,
         fontWeight: '600',
+    },
+    comentariosContainer: {
+        marginTop: 12,
+        paddingTop: 12,
+        borderTopWidth: StyleSheet.hairlineWidth,
     },
 });

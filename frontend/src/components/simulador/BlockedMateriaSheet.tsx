@@ -2,15 +2,20 @@ import React from 'react';
 import {
   StyleSheet,
   Text,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
+  Pressable,
   View,
   Animated,
   ScrollView,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MateriaSimulador } from '../../hooks/useSimuladorData';
 import { SIMULADOR_COLORS, getEstadoConfig } from '../../utils/estadoMapper';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface CorrelativaFaltante {
   materia: MateriaSimulador;
@@ -34,19 +39,14 @@ export function BlockedMateriaSheet({
   overlayOpacity,
   onClose,
 }: BlockedMateriaSheetProps) {
+  const insets = useSafeAreaInsets();
+
   if (!visible || !materia) return null;
 
-  // Separar por tipo de requisito
   const faltantesRegularizadas = correlativasFaltantes.filter(c => c.tipoRequerido === 'regularizada');
   const faltantesAprobadas = correlativasFaltantes.filter(c => c.tipoRequerido === 'aprobada');
 
-  const backdropStyle = {
-    opacity: overlayOpacity,
-  };
-
-  const sheetStyle = {
-    transform: [{ translateY: sheetAnim }],
-  };
+  const maxSheetHeight = SCREEN_HEIGHT * 0.85;
 
   const renderCorrelativaItem = (item: CorrelativaFaltante) => {
     const { materia: correlativa, tipoRequerido } = item;
@@ -55,291 +55,314 @@ export function BlockedMateriaSheet({
 
     return (
       <View key={`${correlativa.id}-${tipoRequerido}`} style={styles.correlativaItem}>
-        <View style={styles.correlativaIconContainer}>
-          <Ionicons
-            name={requiereAprobada ? "school" : "document-text"}
-            size={20}
-            color={requiereAprobada ? "#ff6b6b" : "#ffa500"}
-          />
-        </View>
+        <View style={[styles.correlativaDot, { backgroundColor: estadoConfig.color }]} />
         <View style={styles.correlativaInfo}>
           <Text style={styles.correlativaText} numberOfLines={2}>
             {correlativa.nombre}
           </Text>
-          <View style={styles.correlativaEstadoRow}>
-            <Text style={styles.correlativaNivel}>
-              Nivel {correlativa.nivel}
-            </Text>
-            <View style={[styles.estadoBadge, { borderColor: estadoConfig.color }]}>
-              <Ionicons
-                name={estadoConfig.icon}
-                size={12}
-                color={estadoConfig.iconColor}
-              />
-              <Text style={[styles.estadoText, { color: estadoConfig.color }]}>
-                {estadoConfig.label}
+          <View style={styles.correlativaMeta}>
+            <Text style={styles.correlativaNivel}>Año {correlativa.nivel}</Text>
+            <View style={[styles.miniTag, { backgroundColor: estadoConfig.bgColor }]}>
+              <Text style={[styles.miniTagText, { color: estadoConfig.color }]}>
+                {estadoConfig.labelShort}
               </Text>
             </View>
           </View>
+        </View>
+        <View style={[styles.requiredBadge, { backgroundColor: requiereAprobada ? 'rgba(255, 59, 48, 0.1)' : 'rgba(255, 149, 0, 0.1)' }]}>
+          <Ionicons
+            name={requiereAprobada ? 'school-outline' : 'document-text-outline'}
+            size={16}
+            color={requiereAprobada ? '#FF3B30' : '#FF9500'}
+          />
         </View>
       </View>
     );
   };
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      <TouchableWithoutFeedback onPress={onClose}>
-        <Animated.View style={[styles.overlay, backdropStyle]}>
-          <TouchableWithoutFeedback>
-            <Animated.View style={[styles.sheet, sheetStyle]}>
-              {/* Handle */}
-              <View style={styles.handle} />
+    <View style={styles.modalContainer}>
+      {/* Backdrop - toca para cerrar */}
+      <Pressable style={styles.backdrop} onPress={onClose}>
+        <Animated.View style={[styles.backdropInner, { opacity: overlayOpacity }]} />
+      </Pressable>
 
-              {/* Header con icono de bloqueo */}
-              <View style={styles.blockedHeader}>
-                <View style={styles.blockedIconContainer}>
-                  <Ionicons name="lock-closed" size={32} color="#ff4444" />
+      {/* Sheet */}
+      <Animated.View
+        style={[
+          styles.sheet,
+          {
+            transform: [{ translateY: sheetAnim }],
+            maxHeight: maxSheetHeight,
+          }
+        ]}
+      >
+        {/* Handle */}
+        <View style={styles.handleContainer}>
+          <View style={styles.handle} />
+        </View>
+
+        {/* Header fijo */}
+        <View style={styles.headerFixed}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="lock-closed" size={24} color="#FF3B30" />
+          </View>
+          <View style={styles.headerText}>
+            <Text style={styles.title}>Materia Bloqueada</Text>
+            <Text style={styles.materiaNombre} numberOfLines={2}>{materia.nombre}</Text>
+          </View>
+        </View>
+
+        {/* Contenido scrolleable */}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={true}
+          bounces={true}
+          nestedScrollEnabled={true}
+        >
+          {/* Message */}
+          <View style={styles.messageBox}>
+            <Ionicons name="information-circle" size={18} color={SIMULADOR_COLORS.pendiente} />
+            <Text style={styles.messageText}>
+              Necesitas completar estas correlativas:
+            </Text>
+          </View>
+
+          {/* Correlativas - Regularizar */}
+          {faltantesRegularizadas.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionIcon, { backgroundColor: 'rgba(255, 149, 0, 0.1)' }]}>
+                  <Ionicons name="document-text" size={14} color="#FF9500" />
                 </View>
-                <Text style={styles.blockedTitle}>Materia Bloqueada</Text>
+                <Text style={styles.sectionTitle}>Regularizar</Text>
+                <View style={styles.countBadge}>
+                  <Text style={styles.countText}>{faltantesRegularizadas.length}</Text>
+                </View>
               </View>
+              {faltantesRegularizadas.map(renderCorrelativaItem)}
+            </View>
+          )}
 
-              {/* Nombre de la materia */}
-              <View style={styles.materiaInfo}>
-                <Text style={styles.materiaNombre}>{materia.nombre}</Text>
-                <Text style={styles.nivelText}>Nivel {materia.nivel}</Text>
+          {/* Correlativas - Aprobar */}
+          {faltantesAprobadas.length > 0 && (
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionIcon, { backgroundColor: 'rgba(255, 59, 48, 0.1)' }]}>
+                  <Ionicons name="school" size={14} color="#FF3B30" />
+                </View>
+                <Text style={styles.sectionTitle}>Aprobar (con final)</Text>
+                <View style={styles.countBadge}>
+                  <Text style={styles.countText}>{faltantesAprobadas.length}</Text>
+                </View>
               </View>
+              {faltantesAprobadas.map(renderCorrelativaItem)}
+            </View>
+          )}
+        </ScrollView>
 
-              {/* Separador */}
-              <View style={styles.separator} />
-
-              {/* Mensaje explicativo */}
-              <View style={styles.messageContainer}>
-                <Ionicons name="information-circle" size={20} color="#888" />
-                <Text style={styles.messageText}>
-                  Para poder cursar esta materia, necesitas cumplir con las siguientes correlativas:
-                </Text>
-              </View>
-
-              {/* Lista de correlativas faltantes */}
-              <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-                {/* Sección: Necesitan estar REGULARIZADAS */}
-                {faltantesRegularizadas.length > 0 && (
-                  <View style={styles.correlativasSection}>
-                    <View style={styles.sectionHeader}>
-                      <Ionicons name="document-text" size={16} color="#ffa500" />
-                      <Text style={[styles.sectionTitle, { color: '#ffa500' }]}>
-                        NECESITAS REGULARIZAR ({faltantesRegularizadas.length})
-                      </Text>
-                    </View>
-                    <Text style={styles.sectionSubtitle}>
-                      Estas materias deben estar al menos regularizadas
-                    </Text>
-                    {faltantesRegularizadas.map(renderCorrelativaItem)}
-                  </View>
-                )}
-
-                {/* Sección: Necesitan estar APROBADAS */}
-                {faltantesAprobadas.length > 0 && (
-                  <View style={styles.correlativasSection}>
-                    <View style={styles.sectionHeader}>
-                      <Ionicons name="school" size={16} color="#ff6b6b" />
-                      <Text style={[styles.sectionTitle, { color: '#ff6b6b' }]}>
-                        NECESITAS APROBAR ({faltantesAprobadas.length})
-                      </Text>
-                    </View>
-                    <Text style={styles.sectionSubtitle}>
-                      Estas materias deben tener el final aprobado
-                    </Text>
-                    {faltantesAprobadas.map(renderCorrelativaItem)}
-                  </View>
-                )}
-              </ScrollView>
-
-              {/* Botón de cerrar */}
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={onClose}
-                accessibilityLabel="Entendido"
-                accessibilityRole="button"
-              >
-                <Text style={styles.closeButtonText}>Entendido</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </TouchableWithoutFeedback>
-        </Animated.View>
-      </TouchableWithoutFeedback>
+        {/* Botón fijo abajo */}
+        <View style={[styles.buttonContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <Pressable
+            style={styles.closeButton}
+            onPress={onClose}
+          >
+            <Text style={styles.closeButtonText}>Entendido</Text>
+          </Pressable>
+        </View>
+      </Animated.View>
     </View>
   );
 }
 
-// Exportar el tipo para usar en otros componentes
 export type { CorrelativaFaltante };
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+  modalContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
+    elevation: 1000,
     justifyContent: 'flex-end',
   },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  backdropInner: {
+    flex: 1,
+    backgroundColor: SIMULADOR_COLORS.overlay,
+  },
   sheet: {
-    backgroundColor: '#0a0a0a',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 40,
-    maxHeight: '80%',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 68, 68, 0.3)',
+    backgroundColor: SIMULADOR_COLORS.backgroundSecondary,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    flexDirection: 'column',
+  },
+  handleContainer: {
+    paddingVertical: 12,
+    alignItems: 'center',
   },
   handle: {
-    width: 40,
+    width: 36,
     height: 5,
     borderRadius: 3,
-    backgroundColor: '#333',
-    alignSelf: 'center',
-    marginBottom: 20,
+    backgroundColor: SIMULADOR_COLORS.backgroundTertiary,
   },
-  blockedHeader: {
+  headerFixed: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: SIMULADOR_COLORS.separator,
+    gap: 14,
   },
-  blockedIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255, 68, 68, 0.15)',
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: 'rgba(255, 68, 68, 0.3)',
   },
-  blockedTitle: {
-    color: '#ff4444',
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  materiaInfo: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  materiaNombre: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  nivelText: {
-    color: '#666',
-    fontSize: 13,
-    fontFamily: 'monospace',
-  },
-  separator: {
-    height: 1,
-    backgroundColor: '#222',
-    marginVertical: 16,
-  },
-  messageContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 16,
-    gap: 12,
-  },
-  messageText: {
-    color: '#aaa',
-    fontSize: 14,
-    lineHeight: 20,
+  headerText: {
     flex: 1,
   },
-  scrollContainer: {
-    maxHeight: 280,
-    marginBottom: 16,
+  title: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FF3B30',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  correlativasSection: {
-    marginBottom: 16,
+  materiaNombre: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: SIMULADOR_COLORS.textPrimary,
+  },
+  scrollView: {
+    flexGrow: 1,
+    flexShrink: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
+  },
+  messageBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 122, 255, 0.06)',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 20,
+    gap: 10,
+  },
+  messageText: {
+    flex: 1,
+    fontSize: 14,
+    color: SIMULADOR_COLORS.textSecondary,
+  },
+  section: {
+    marginBottom: 20,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
+    marginBottom: 12,
+  },
+  sectionIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
   sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    fontFamily: 'monospace',
-    letterSpacing: 0.5,
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: SIMULADOR_COLORS.textPrimary,
   },
-  sectionSubtitle: {
-    color: '#666',
-    fontSize: 12,
-    marginBottom: 10,
-    marginLeft: 24,
+  countBadge: {
+    backgroundColor: SIMULADOR_COLORS.background,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  countText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: SIMULADOR_COLORS.textSecondary,
   },
   correlativaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111',
+    backgroundColor: SIMULADOR_COLORS.background,
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     marginBottom: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 68, 68, 0.15)',
   },
-  correlativaIconContainer: {
+  correlativaDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     marginRight: 12,
-    width: 28,
-    alignItems: 'center',
   },
   correlativaInfo: {
     flex: 1,
   },
   correlativaText: {
-    color: '#fff',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
+    color: SIMULADOR_COLORS.textPrimary,
     marginBottom: 4,
   },
-  correlativaEstadoRow: {
+  correlativaMeta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   correlativaNivel: {
-    color: '#555',
-    fontSize: 11,
-    fontFamily: 'monospace',
+    fontSize: 12,
+    color: SIMULADOR_COLORS.textTertiary,
   },
-  estadoBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  miniTag: {
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    borderWidth: 1,
-    gap: 4,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  estadoText: {
+  miniTagText: {
     fontSize: 11,
     fontWeight: '600',
   },
+  requiredBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  buttonContainer: {
+    flexShrink: 0,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    backgroundColor: SIMULADOR_COLORS.backgroundSecondary,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: SIMULADOR_COLORS.separator,
+  },
   closeButton: {
-    backgroundColor: '#222',
+    backgroundColor: SIMULADOR_COLORS.pendiente,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#333',
   },
   closeButtonText: {
-    color: '#fff',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

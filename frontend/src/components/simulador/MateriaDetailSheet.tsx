@@ -2,16 +2,21 @@ import React from 'react';
 import {
   StyleSheet,
   Text,
-  TouchableOpacity,
+  Pressable,
   TouchableWithoutFeedback,
   View,
   ScrollView,
   Animated,
+  Dimensions,
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { MateriaSimulador } from '../../hooks/useSimuladorData';
 import { SIMULADOR_COLORS, getEstadoConfig, EstadoVisual } from '../../utils/estadoMapper';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface MateriaDetailSheetProps {
   materia: MateriaSimulador | null;
@@ -32,15 +37,16 @@ export function MateriaDetailSheet({
   onClose,
   onChangeEstado,
 }: MateriaDetailSheetProps) {
+  const insets = useSafeAreaInsets();
+
   if (!visible || !materia) return null;
 
   const estadoConfig = getEstadoConfig(materia.estado);
+  const maxSheetHeight = SCREEN_HEIGHT * 0.85;
 
-  // Obtener correlativas con su estado
-  const correlativas = materia.reqs.map(reqId => {
-    const correlativa = allMaterias.find(m => m.id === reqId);
-    return correlativa;
-  }).filter(Boolean) as MateriaSimulador[];
+  const correlativas = materia.reqs
+    .map(reqId => allMaterias.find(m => m.id === reqId))
+    .filter(Boolean) as MateriaSimulador[];
 
   const correlativasCumplidas = correlativas.filter(
     c => c.estado === 'aprobada' || c.estado === 'regularizada'
@@ -67,92 +73,110 @@ export function MateriaDetailSheet({
     onClose();
   };
 
-  const backdropStyle = {
-    opacity: overlayOpacity,
-  };
-
-  const sheetStyle = {
-    transform: [{ translateY: sheetAnim }],
-  };
-
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <View style={styles.modalContainer} pointerEvents="box-none">
       <TouchableWithoutFeedback onPress={onClose}>
-        <Animated.View style={[styles.overlay, backdropStyle]}>
+        <Animated.View style={[styles.overlay, { opacity: overlayOpacity }]}>
           <TouchableWithoutFeedback>
-            <Animated.View style={[styles.sheet, sheetStyle]}>
+            <Animated.View
+              style={[
+                styles.sheet,
+                {
+                  transform: [{ translateY: sheetAnim }],
+                  maxHeight: maxSheetHeight,
+                  paddingBottom: Math.max(insets.bottom, 20) + 20,
+                }
+              ]}
+            >
               {/* Handle */}
               <View style={styles.handle} />
 
               {/* Header */}
               <View style={styles.header}>
-                <TouchableOpacity
+                <Text style={styles.headerTitle}>Detalle</Text>
+                <Pressable
                   onPress={onClose}
-                  accessibilityLabel="Cerrar"
-                  accessibilityRole="button"
+                  style={styles.closeButtonContainer}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Ionicons name="close" size={24} color="#888" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Detalle de Materia</Text>
-                <View style={{ width: 24 }} />
+                  <BlurView intensity={80} tint="light" style={styles.closeButtonBlur}>
+                    <Ionicons name="close" size={18} color={SIMULADOR_COLORS.textSecondary} />
+                  </BlurView>
+                </Pressable>
               </View>
 
-              {/* Nombre y Estado */}
-              <View style={styles.materiaInfo}>
-                <Text style={styles.materiaNombre}>{materia.nombre}</Text>
-                <View style={[styles.estadoBadge, { backgroundColor: estadoConfig.bgColor, borderColor: estadoConfig.color }]}>
-                  <Ionicons name={estadoConfig.icon} size={16} color={estadoConfig.iconColor} />
-                  <Text style={[styles.estadoText, { color: estadoConfig.color }]}>
-                    {estadoConfig.label}
-                  </Text>
+              {/* Scrollable Content */}
+              <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={true}
+                bounces={true}
+              >
+                {/* Materia Info */}
+                <View style={styles.materiaInfo}>
+                  <View style={[styles.estadoIndicator, { backgroundColor: estadoConfig.color }]}>
+                    <Ionicons name={estadoConfig.iconFilled} size={20} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.materiaNombre}>{materia.nombre}</Text>
+                  <View style={styles.metaRow}>
+                    <View style={[styles.badge, { backgroundColor: estadoConfig.bgColor }]}>
+                      <Text style={[styles.badgeText, { color: estadoConfig.color }]}>
+                        {estadoConfig.label}
+                      </Text>
+                    </View>
+                    <Text style={styles.nivelText}>Año {materia.nivel}</Text>
+                  </View>
                 </View>
-                <Text style={styles.nivelText}>Nivel {materia.nivel}</Text>
-              </View>
 
-              {/* Correlativas */}
-              <ScrollView style={styles.correlativasContainer} showsVerticalScrollIndicator={false}>
-                <Text style={styles.sectionTitle}>CORRELATIVAS</Text>
+                {/* Correlativas */}
+                <Text style={styles.sectionTitle}>Correlativas</Text>
 
                 {correlativas.length === 0 ? (
-                  <View style={styles.noCorrelativas}>
-                    <Ionicons name="checkmark-circle" size={32} color={SIMULADOR_COLORS.aprobada} />
-                    <Text style={styles.noCorrelativasText}>Sin correlativas</Text>
-                    <Text style={styles.noCorrelativasSubtext}>
-                      Podes cursar esta materia sin requisitos previos
+                  <View style={styles.emptyState}>
+                    <View style={styles.emptyIcon}>
+                      <Ionicons name="checkmark-circle" size={32} color={SIMULADOR_COLORS.aprobada} />
+                    </View>
+                    <Text style={styles.emptyTitle}>Sin requisitos</Text>
+                    <Text style={styles.emptyText}>
+                      Esta materia no tiene correlativas previas
                     </Text>
                   </View>
                 ) : (
                   <>
-                    {/* Correlativas Faltantes */}
                     {correlativasFaltantes.length > 0 && (
                       <View style={styles.correlativasSection}>
-                        <Text style={styles.correlativasSectionTitle}>
-                          <Ionicons name="lock-closed" size={14} color="#ff4444" /> Faltantes ({correlativasFaltantes.length})
-                        </Text>
+                        <View style={styles.sectionHeader}>
+                          <Ionicons name="alert-circle" size={16} color="#FF3B30" />
+                          <Text style={[styles.sectionSubtitle, { color: '#FF3B30' }]}>
+                            Pendientes ({correlativasFaltantes.length})
+                          </Text>
+                        </View>
                         {correlativasFaltantes.map(c => (
                           <View key={c.id} style={styles.correlativaItem}>
-                            <Ionicons name="close-circle" size={20} color="#ff4444" />
-                            <Text style={styles.correlativaText}>{c.nombre}</Text>
+                            <View style={[styles.correlativaDot, { backgroundColor: getEstadoConfig(c.estado).color }]} />
+                            <Text style={styles.correlativaText} numberOfLines={1}>{c.nombre}</Text>
                             <Text style={[styles.correlativaEstado, { color: getEstadoConfig(c.estado).color }]}>
-                              {getEstadoConfig(c.estado).label}
+                              {getEstadoConfig(c.estado).labelShort}
                             </Text>
                           </View>
                         ))}
                       </View>
                     )}
 
-                    {/* Correlativas Cumplidas */}
                     {correlativasCumplidas.length > 0 && (
                       <View style={styles.correlativasSection}>
-                        <Text style={styles.correlativasSectionTitle}>
-                          <Ionicons name="checkmark-circle" size={14} color={SIMULADOR_COLORS.aprobada} /> Cumplidas ({correlativasCumplidas.length})
-                        </Text>
+                        <View style={styles.sectionHeader}>
+                          <Ionicons name="checkmark-circle" size={16} color={SIMULADOR_COLORS.aprobada} />
+                          <Text style={[styles.sectionSubtitle, { color: SIMULADOR_COLORS.aprobada }]}>
+                            Cumplidas ({correlativasCumplidas.length})
+                          </Text>
+                        </View>
                         {correlativasCumplidas.map(c => (
                           <View key={c.id} style={styles.correlativaItem}>
-                            <Ionicons name="checkmark-circle" size={20} color={SIMULADOR_COLORS.aprobada} />
-                            <Text style={styles.correlativaText}>{c.nombre}</Text>
+                            <View style={[styles.correlativaDot, { backgroundColor: getEstadoConfig(c.estado).color }]} />
+                            <Text style={styles.correlativaText} numberOfLines={1}>{c.nombre}</Text>
                             <Text style={[styles.correlativaEstado, { color: getEstadoConfig(c.estado).color }]}>
-                              {getEstadoConfig(c.estado).label}
+                              {getEstadoConfig(c.estado).labelShort}
                             </Text>
                           </View>
                         ))}
@@ -162,56 +186,53 @@ export function MateriaDetailSheet({
                 )}
               </ScrollView>
 
-              {/* Botones de Acción */}
-              {materia.estado !== 'bloqueada' && (
-                <View style={styles.actions}>
-                  {materia.estado !== 'aprobada' && (
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.aprobarButton]}
-                      onPress={handleAprobar}
-                      accessibilityLabel="Marcar como aprobada"
-                      accessibilityRole="button"
-                    >
-                      <Ionicons name="checkmark-done" size={20} color="#000" />
-                      <Text style={styles.actionButtonTextDark}>Aprobar</Text>
-                    </TouchableOpacity>
-                  )}
+              {/* Actions - Fixed at bottom */}
+              <View style={styles.actionsContainer}>
+                {materia.estado !== 'bloqueada' && (
+                  <View style={styles.actions}>
+                    {materia.estado !== 'aprobada' && (
+                      <Pressable
+                        style={[styles.actionButton, { backgroundColor: SIMULADOR_COLORS.aprobada }]}
+                        onPress={handleAprobar}
+                      >
+                        <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                        <Text style={styles.actionButtonText}>Aprobar</Text>
+                      </Pressable>
+                    )}
 
-                  {materia.estado !== 'regularizada' && materia.estado !== 'aprobada' && (
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.regularButton]}
-                      onPress={handleRegularizar}
-                      accessibilityLabel="Marcar como regularizada"
-                      accessibilityRole="button"
-                    >
-                      <Ionicons name="checkmark" size={20} color="#000" />
-                      <Text style={styles.actionButtonTextDark}>Regularizar</Text>
-                    </TouchableOpacity>
-                  )}
+                    {materia.estado !== 'regularizada' && materia.estado !== 'aprobada' && (
+                      <Pressable
+                        style={[styles.actionButton, { backgroundColor: SIMULADOR_COLORS.regularizada }]}
+                        onPress={handleRegularizar}
+                      >
+                        <Ionicons name="checkmark" size={20} color="#FFFFFF" />
+                        <Text style={styles.actionButtonText}>Regularizar</Text>
+                      </Pressable>
+                    )}
 
-                  {(materia.estado === 'aprobada' || materia.estado === 'regularizada') && (
-                    <TouchableOpacity
-                      style={[styles.actionButton, styles.resetButton]}
-                      onPress={handlePendiente}
-                      accessibilityLabel="Marcar como pendiente"
-                      accessibilityRole="button"
-                    >
-                      <Ionicons name="refresh" size={20} color="#fff" />
-                      <Text style={styles.actionButtonText}>Resetear</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
+                    {(materia.estado === 'aprobada' || materia.estado === 'regularizada') && (
+                      <Pressable
+                        style={[styles.actionButton, styles.resetButton]}
+                        onPress={handlePendiente}
+                      >
+                        <Ionicons name="refresh" size={20} color={SIMULADOR_COLORS.textSecondary} />
+                        <Text style={[styles.actionButtonText, { color: SIMULADOR_COLORS.textSecondary }]}>
+                          Resetear
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
+                )}
 
-              {/* Mensaje para bloqueadas */}
-              {materia.estado === 'bloqueada' && (
-                <View style={styles.blockedMessage}>
-                  <Ionicons name="information-circle" size={20} color="#888" />
-                  <Text style={styles.blockedMessageText}>
-                    Completa las correlativas para desbloquear esta materia
-                  </Text>
-                </View>
-              )}
+                {materia.estado === 'bloqueada' && (
+                  <View style={styles.blockedMessage}>
+                    <Ionicons name="lock-closed" size={18} color={SIMULADOR_COLORS.textTertiary} />
+                    <Text style={styles.blockedText}>
+                      Completa las correlativas para desbloquear
+                    </Text>
+                  </View>
+                )}
+              </View>
             </Animated.View>
           </TouchableWithoutFeedback>
         </Animated.View>
@@ -221,170 +242,209 @@ export function MateriaDetailSheet({
 }
 
 const styles = StyleSheet.create({
+  modalContainer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
+    elevation: 1000,
+  },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: SIMULADOR_COLORS.overlay,
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#111',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 40,
-    maxHeight: '80%',
+    backgroundColor: SIMULADOR_COLORS.backgroundSecondary,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 8,
+    overflow: 'hidden',
   },
   handle: {
-    width: 40,
+    width: 36,
     height: 5,
     borderRadius: 3,
-    backgroundColor: '#333',
+    backgroundColor: SIMULADOR_COLORS.backgroundTertiary,
     alignSelf: 'center',
-    marginBottom: 15,
+    marginBottom: 12,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 20,
+    marginBottom: 8,
   },
   headerTitle: {
-    color: '#888',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    fontFamily: 'monospace',
+    color: SIMULADOR_COLORS.textTertiary,
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  closeButtonContainer: {
+    borderRadius: 15,
+    overflow: 'hidden',
+  },
+  closeButtonBlur: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrollView: {
+    flexGrow: 0,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 16,
   },
   materiaInfo: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  materiaNombre: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
+  estadoIndicator: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
   },
-  estadoBadge: {
+  materiaNombre: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: SIMULADOR_COLORS.textPrimary,
+    textAlign: 'center',
+    marginBottom: 12,
+    letterSpacing: -0.4,
+  },
+  metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+  },
+  badge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 6,
-    marginBottom: 8,
+    borderRadius: 12,
   },
-  estadoText: {
-    fontSize: 14,
+  badgeText: {
+    fontSize: 13,
     fontWeight: '600',
   },
   nivelText: {
-    color: '#666',
-    fontSize: 12,
-    fontFamily: 'monospace',
+    fontSize: 14,
+    color: SIMULADOR_COLORS.textTertiary,
   },
-  correlativasContainer: {
-    maxHeight: 250,
+  actionsContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: SIMULADOR_COLORS.separator,
   },
   sectionTitle: {
-    color: '#666',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
+    color: SIMULADOR_COLORS.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
     marginBottom: 12,
-    fontFamily: 'monospace',
   },
-  noCorrelativas: {
+  emptyState: {
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: 24,
   },
-  noCorrelativasText: {
-    color: SIMULADOR_COLORS.aprobada,
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: 'rgba(52, 199, 89, 0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  emptyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginTop: 8,
+    color: SIMULADOR_COLORS.textPrimary,
+    marginBottom: 4,
   },
-  noCorrelativasSubtext: {
-    color: '#666',
-    fontSize: 13,
-    marginTop: 4,
+  emptyText: {
+    fontSize: 14,
+    color: SIMULADOR_COLORS.textTertiary,
     textAlign: 'center',
   },
   correlativasSection: {
     marginBottom: 16,
   },
-  correlativasSectionTitle: {
-    color: '#888',
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  sectionSubtitle: {
     fontSize: 13,
     fontWeight: '600',
-    marginBottom: 8,
   },
   correlativaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-    padding: 12,
-    borderRadius: 10,
+    backgroundColor: SIMULADOR_COLORS.background,
+    padding: 14,
+    borderRadius: 12,
     marginBottom: 8,
-    gap: 10,
+  },
+  correlativaDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
   },
   correlativaText: {
-    color: '#fff',
-    fontSize: 14,
     flex: 1,
+    fontSize: 15,
+    color: SIMULADOR_COLORS.textPrimary,
   },
   correlativaEstado: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
   },
   actions: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 20,
+    marginTop: 4,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 16,
+    borderRadius: 14,
     gap: 8,
   },
-  aprobarButton: {
-    backgroundColor: SIMULADOR_COLORS.aprobada,
-  },
-  regularButton: {
-    backgroundColor: SIMULADOR_COLORS.regularizada,
-  },
   resetButton: {
-    backgroundColor: '#333',
+    backgroundColor: SIMULADOR_COLORS.background,
   },
   actionButtonText: {
-    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  actionButtonTextDark: {
-    color: '#000',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#FFFFFF',
   },
   blockedMessage: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1a1a1a',
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 20,
+    backgroundColor: SIMULADOR_COLORS.background,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 14,
     gap: 10,
   },
-  blockedMessageText: {
-    color: '#888',
+  blockedText: {
     fontSize: 14,
-    flex: 1,
+    color: SIMULADOR_COLORS.textTertiary,
   },
 });

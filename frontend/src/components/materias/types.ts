@@ -5,6 +5,7 @@ export interface Materia {
   nombre: string;
   nivel?: string;
   numero?: number;
+  carreraId?: string;
 }
 
 export interface UsuarioMateria {

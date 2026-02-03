@@ -149,14 +149,18 @@ export function useHomeData(): UseHomeDataReturn {
       setTasks(tareasRapidas);
 
       if (userId) {
-        const userMaterias: MateriaUsuario[] = await materiasApi.getMateriasByUsuario(userId);
-        const allMaterias = await materiasApi.getMaterias();
-        const totalPlan = allMaterias ? allMaterias.length : 0;
+        // Fetch data concurrently for efficiency
+        const [userMaterias, availableMaterias] = await Promise.all([
+          materiasApi.getMateriasByUsuario(userId),
+          materiasApi.getMateriasDisponibles(userId)
+        ]);
+
+        const totalPlan = (userMaterias?.length || 0) + (availableMaterias?.length || 0);
 
         const aprobadas = userMaterias?.filter((m) => m.estado === 'aprobado').length || 0;
         const cursando = userMaterias?.filter((m) => m.estado === 'cursado').length || 0;
         const regulares = userMaterias?.filter((m) => m.estado === 'regular').length || 0;
-        const noCursadas = totalPlan - (userMaterias?.length || 0);
+        const noCursadas = availableMaterias?.length || 0;
 
         setStats({ aprobadas, cursando, regulares, totalPlan, noCursadas });
 

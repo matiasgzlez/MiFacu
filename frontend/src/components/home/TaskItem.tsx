@@ -26,20 +26,27 @@ export const TaskItem = memo<TaskItemProps>(function TaskItem({
   const { isDark: isDarkMode } = useTheme();
   const [isEditing, setIsEditing] = useState(false);
   const [text, setText] = useState(task.nombre);
+  const [description, setDescription] = useState(task.descripcion || '');
 
   const opacity = useRef(new Animated.Value(1)).current;
   const scale = useRef(new Animated.Value(1)).current;
 
   const handleSave = useCallback(async () => {
     setIsEditing(false);
-    if (text.trim() !== task.nombre) {
+    const trimmedText = text.trim();
+    const trimmedDesc = description.trim() || undefined;
+
+    if (trimmedText !== task.nombre || trimmedDesc !== task.descripcion) {
       try {
-        await DataRepository.updateRecordatorio(task.id, { nombre: text.trim() });
+        await DataRepository.updateRecordatorio(task.id, {
+          nombre: trimmedText,
+          descripcion: trimmedDesc,
+        });
       } catch (e) {
         console.error('Error updating task', e);
       }
     }
-  }, [text, task.nombre, task.id]);
+  }, [text, description, task.nombre, task.descripcion, task.id]);
 
   const handleComplete = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -71,16 +78,29 @@ export const TaskItem = memo<TaskItemProps>(function TaskItem({
       </TouchableOpacity>
 
       {isEditing ? (
-        <TextInput
-          style={[styles.taskInputEdit, { color: theme.text }]}
-          value={text}
-          onChangeText={setText}
-          onBlur={handleSave}
-          onSubmitEditing={handleSave}
-          autoFocus
-          returnKeyType="done"
-          accessibilityLabel="Editar nombre de tarea"
-        />
+        <View style={styles.editContainer}>
+          <TextInput
+            style={[styles.taskInputEdit, { color: theme.text }]}
+            value={text}
+            onChangeText={setText}
+            autoFocus
+            returnKeyType="next"
+            accessibilityLabel="Editar nombre de tarea"
+            placeholder="Título"
+            placeholderTextColor={theme.separator}
+          />
+          <TextInput
+            style={[styles.descriptionInputEdit, { color: theme.icon }]}
+            value={description}
+            onChangeText={setDescription}
+            onBlur={handleSave}
+            onSubmitEditing={handleSave}
+            returnKeyType="done"
+            accessibilityLabel="Editar descripción de tarea"
+            placeholder="Descripción (opcional)"
+            placeholderTextColor={theme.separator}
+          />
+        </View>
       ) : (
         <TouchableOpacity
           onPress={() => setIsEditing(true)}
@@ -89,6 +109,9 @@ export const TaskItem = memo<TaskItemProps>(function TaskItem({
           accessibilityRole="button"
         >
           <Text style={[styles.taskText, { color: theme.text, fontWeight: '500' }]} numberOfLines={2}>{text}</Text>
+          {task.descripcion && (
+            <Text style={[styles.taskDescription, { color: theme.icon }]}>{task.descripcion}</Text>
+          )}
         </TouchableOpacity>
       )}
     </Animated.View>
@@ -98,12 +121,13 @@ export const TaskItem = memo<TaskItemProps>(function TaskItem({
 const styles = StyleSheet.create({
   taskItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingVertical: 11,
     paddingHorizontal: 14,
   },
   taskCheckbox: {
     marginRight: 12,
+    marginTop: 2,
   },
   checkboxCircle: {
     width: 22,
@@ -119,10 +143,22 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     lineHeight: 21,
   },
-  taskInputEdit: {
+  taskDescription: {
+    fontSize: 13,
+    marginTop: 2,
+    lineHeight: 18,
+  },
+  editContainer: {
     flex: 1,
+  },
+  taskInputEdit: {
     fontSize: 16,
-    fontWeight: '400',
+    fontWeight: '500',
     padding: 0,
+  },
+  descriptionInputEdit: {
+    fontSize: 13,
+    padding: 0,
+    marginTop: 4,
   },
 });

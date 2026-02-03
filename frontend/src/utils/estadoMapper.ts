@@ -6,45 +6,76 @@ export type EstadoAPI = 'aprobado' | 'regular' | 'cursado' | 'no_cursado' | null
 // Estados visuales del simulador
 export type EstadoVisual = 'aprobada' | 'regularizada' | 'pendiente' | 'bloqueada';
 
-// Colores del tema cyberpunk
+// Paleta iOS Premium
 export const SIMULADOR_COLORS = {
-  aprobada: '#00ff9d',
-  regularizada: '#FFD700',
-  pendiente: '#FFFFFF',
-  bloqueada: '#1a1a1a',
-  fondo: '#050a10',
-  lineaInactiva: '#222',
+  // Estados
+  aprobada: '#34C759',      // iOS Green
+  regularizada: '#FF9500',  // iOS Orange
+  pendiente: '#007AFF',     // iOS Blue
+  bloqueada: '#8E8E93',     // iOS Gray
+
+  // Fondos
+  background: '#F2F2F7',    // iOS Light Gray Background
+  backgroundSecondary: '#FFFFFF',
+  backgroundTertiary: '#E5E5EA',
+
+  // Conexiones
+  lineaActiva: '#34C759',
+  lineaInactiva: '#C7C7CC',
+
+  // Texto
+  textPrimary: '#000000',
+  textSecondary: '#3C3C43',
+  textTertiary: '#8E8E93',
+
+  // Separadores
+  separator: 'rgba(60, 60, 67, 0.12)',
+
+  // Overlay
+  overlay: 'rgba(0, 0, 0, 0.4)',
 } as const;
 
-// Configuración visual por estado
+// Configuración visual por estado - Estilo iOS
 export const ESTADO_CONFIG = {
   aprobada: {
     color: SIMULADOR_COLORS.aprobada,
-    bgColor: 'rgba(0, 255, 157, 0.15)',
-    icon: 'checkmark-done' as const,
+    bgColor: 'rgba(52, 199, 89, 0.12)',
+    gradientColors: ['rgba(52, 199, 89, 0.15)', 'rgba(52, 199, 89, 0.05)'],
+    icon: 'checkmark-circle-outline' as const,
+    iconFilled: 'checkmark-circle' as const,
     iconColor: SIMULADOR_COLORS.aprobada,
     label: 'Aprobada',
+    labelShort: 'Apr',
   },
   regularizada: {
     color: SIMULADOR_COLORS.regularizada,
-    bgColor: 'rgba(255, 215, 0, 0.1)',
-    icon: 'checkmark' as const,
+    bgColor: 'rgba(255, 149, 0, 0.12)',
+    gradientColors: ['rgba(255, 149, 0, 0.15)', 'rgba(255, 149, 0, 0.05)'],
+    icon: 'checkmark-outline' as const,
+    iconFilled: 'checkmark' as const,
     iconColor: SIMULADOR_COLORS.regularizada,
-    label: 'Regularizada',
+    label: 'Regular',
+    labelShort: 'Reg',
   },
   pendiente: {
     color: SIMULADOR_COLORS.pendiente,
-    bgColor: '#222',
-    icon: 'lock-open-outline' as const,
-    iconColor: '#fff',
-    label: 'Pendiente',
+    bgColor: 'rgba(0, 122, 255, 0.08)',
+    gradientColors: ['rgba(0, 122, 255, 0.12)', 'rgba(0, 122, 255, 0.04)'],
+    icon: 'ellipse-outline' as const,
+    iconFilled: 'ellipse' as const,
+    iconColor: SIMULADOR_COLORS.pendiente,
+    label: 'Disponible',
+    labelShort: 'Disp',
   },
   bloqueada: {
-    color: '#333',
-    bgColor: '#080808',
-    icon: 'lock-closed' as const,
-    iconColor: '#333',
+    color: SIMULADOR_COLORS.bloqueada,
+    bgColor: 'rgba(142, 142, 147, 0.08)',
+    gradientColors: ['rgba(142, 142, 147, 0.1)', 'rgba(142, 142, 147, 0.03)'],
+    icon: 'lock-closed-outline' as const,
+    iconFilled: 'lock-closed' as const,
+    iconColor: SIMULADOR_COLORS.bloqueada,
     label: 'Bloqueada',
+    labelShort: 'Bloq',
   },
 } as const;
 
@@ -62,7 +93,7 @@ export function apiToVisual(estadoApi: EstadoAPI): EstadoVisual {
     case 'no_cursado':
     case null:
     default:
-      return 'pendiente'; // Se recalculará como bloqueada si no cumple correlativas
+      return 'pendiente';
   }
 }
 
@@ -97,7 +128,7 @@ export function getNextEstado(estadoActual: EstadoVisual): EstadoVisual {
     case 'aprobada':
       return 'pendiente';
     case 'bloqueada':
-      return 'bloqueada'; // No se puede cambiar
+      return 'bloqueada';
     default:
       return 'pendiente';
   }

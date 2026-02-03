@@ -1,40 +1,23 @@
 /**
  * Configuración centralizada de notificaciones locales para MiFacu
- * 
+ *
  * Este módulo configura expo-notifications para usar SOLO notificaciones locales.
  * Las notificaciones remotas (push) no están soportadas en Expo Go SDK 53+,
  * pero las locales funcionan perfectamente.
  */
 
 import * as Notifications from 'expo-notifications';
-import { Platform, LogBox } from 'react-native';
+import { Platform } from 'react-native';
 
-// Silenciar los warnings de expo-notifications sobre push remotas
-// Estos warnings aparecen porque el módulo incluye código para push remotas,
-// pero nosotros solo usamos notificaciones locales que SÍ funcionan en Expo Go
-// Método 1: LogBox para warnings de React
-LogBox.ignoreLogs([
-    'expo-notifications: Android Push notifications',
-    '`expo-notifications` functionality is not fully supported',
-    'expo-notifications functionality',
-]);
-
-// Método 2: Interceptar console.warn para warnings que vienen del módulo nativo
-const originalWarn = console.warn;
-console.warn = (...args: any[]) => {
-    const message = args[0];
-    if (typeof message === 'string') {
-        // Filtrar warnings específicos de expo-notifications sobre push remotas
-        if (
-            message.includes('expo-notifications: Android Push notifications') ||
-            message.includes('expo-notifications` functionality is not fully supported') ||
-            message.includes('Use a development build instead of Expo Go')
-        ) {
-            return; // No mostrar este warning
-        }
-    }
-    originalWarn.apply(console, args);
-};
+// Canal de notificaciones para Android 8+ (requerido)
+if (Platform.OS === 'android') {
+    Notifications.setNotificationChannelAsync('examenes', {
+        name: 'Exámenes',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        sound: 'default',
+    });
+}
 
 // Configuración del handler de notificaciones
 // Esto define cómo se muestran las notificaciones cuando la app está en foreground
@@ -99,10 +82,12 @@ export async function scheduleLocalNotification(
                 body,
                 data: data || {},
                 sound: true,
+                ...(Platform.OS === 'android' && { channelId: 'examenes' }),
             },
             trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.DATE,
                 date: scheduledDate,
+                ...(Platform.OS === 'android' && { channelId: 'examenes' }),
             } as Notifications.DateTriggerInput,
         });
 

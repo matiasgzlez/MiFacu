@@ -13,27 +13,16 @@ import {
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { DataRepository } from '../../services/dataRepository';
 import { mifacuNavy, mifacuGold } from '../../constants/theme';
-import type { ThemeColors } from '../../types';
+import type { ThemeColors, Universidad, Carrera } from '../../types';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-// Datos Mockup (Arquitectura escalable)
-const UNIVERSIDADES = [
-    {
-        id: 'utn_frre',
-        nombre: 'UTN - Facultad Regional Resistencia',
-        logo: 'school',
-        carreras: [
-            { id: 'isi', nombre: 'Ingeniería en Sistemas de Información' },
-        ],
-    },
-];
 
 interface CarreraModalProps {
     visible: boolean;
     onClose: () => void;
-    onSelect: (carrera: string) => void;
+    onSelect: (carreraId: string, carreraNombre: string) => void;
     theme: ThemeColors;
     isDarkMode: boolean;
 }
@@ -47,14 +36,55 @@ export const CarreraModal = ({
 }: CarreraModalProps) => {
     const [step, setStep] = useState<'universidad' | 'carrera'>('universidad');
     const [selectedUni, setSelectedUni] = useState<string | null>(null);
+    const [universidades, setUniversidades] = useState<Universidad[]>([]);
+    const [carreras, setCarreras] = useState<Carrera[]>([]);
+    const [loading, setLoading] = useState(false);
 
-    // Reset state when opening
+    // Load universities when joining university step
     useEffect(() => {
-        if (visible) {
+        if (visible && step === 'universidad') {
+            loadUniversidades();
+        }
+    }, [visible, step]);
+
+    // Load careers when selecting university
+    useEffect(() => {
+        if (selectedUni) {
+            loadCarreras(selectedUni);
+        }
+    }, [selectedUni]);
+
+    // Reset state when closing
+    useEffect(() => {
+        if (!visible) {
             setStep('universidad');
             setSelectedUni(null);
         }
     }, [visible]);
+
+    const loadUniversidades = async () => {
+        try {
+            setLoading(true);
+            const data = await DataRepository.getUniversidades();
+            setUniversidades(data);
+        } catch (error) {
+            console.error('Error loading universities:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadCarreras = async (uniId: string) => {
+        try {
+            setLoading(true);
+            const data = await DataRepository.getCarreras(uniId);
+            setCarreras(data);
+        } catch (error) {
+            console.error('Error loading careers:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const handleSelectUni = (id: string) => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -62,9 +92,9 @@ export const CarreraModal = ({
         setStep('carrera');
     };
 
-    const handleSelectCarrera = (nombre: string) => {
+    const handleSelectCarrera = (id: string, nombre: string) => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        onSelect(nombre);
+        onSelect(id, nombre);
     };
 
     const renderUniversidad = () => (
@@ -74,7 +104,7 @@ export const CarreraModal = ({
                 Para ofrecerte los horarios y materias correctos
             </Text>
 
-            {UNIVERSIDADES.map((uni) => (
+            {universidades.map((uni) => (
                 <TouchableOpacity
                     key={uni.id}
                     style={[styles.card, { backgroundColor: theme.backgroundSecondary, borderColor: theme.separator }]}
@@ -86,7 +116,7 @@ export const CarreraModal = ({
                     </View>
                     <View style={styles.cardContent}>
                         <Text style={[styles.cardTitle, { color: theme.text }]}>{uni.nombre}</Text>
-                        <Text style={[styles.cardSubtitle, { color: theme.icon }]}>Chaco, Argentina</Text>
+                        <Text style={[styles.cardSubtitle, { color: theme.icon }]}>{uni.abreviatura || 'Universidad'}</Text>
                     </View>
                     <Ionicons name="chevron-forward" size={20} color={theme.separator} />
                 </TouchableOpacity>
@@ -102,7 +132,7 @@ export const CarreraModal = ({
     );
 
     const renderCarrera = () => {
-        const uni = UNIVERSIDADES.find((u) => u.id === selectedUni);
+        const uni = universidades.find((u) => u.id === selectedUni);
         return (
             <View style={styles.stepContainer}>
                 <TouchableOpacity
@@ -119,11 +149,11 @@ export const CarreraModal = ({
                     {uni?.nombre}
                 </Text>
 
-                {uni?.carreras.map((carrera) => (
+                {carreras.map((carrera) => (
                     <TouchableOpacity
                         key={carrera.id}
                         style={[styles.card, { backgroundColor: theme.backgroundSecondary, borderColor: theme.separator }]}
-                        onPress={() => handleSelectCarrera(carrera.nombre)}
+                        onPress={() => handleSelectCarrera(carrera.id, carrera.nombre)}
                         activeOpacity={0.7}
                     >
                         <View style={[styles.iconBox, { backgroundColor: mifacuGold }]}>
@@ -151,6 +181,14 @@ export const CarreraModal = ({
 
                 <View style={[styles.sheet, { backgroundColor: theme.background }]}>
                     <View style={[styles.handle, { backgroundColor: theme.separator }]} />
+
+                    <TouchableOpacity
+                        style={styles.closeButton}
+                        onPress={onClose}
+                        hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                    >
+                        <Ionicons name="close" size={24} color={theme.text} />
+                    </TouchableOpacity>
 
                     <ScrollView
                         contentContainerStyle={styles.scrollContent}
@@ -186,6 +224,19 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 12,
         elevation: 20,
+        position: 'relative',
+    },
+    closeButton: {
+        position: 'absolute',
+        top: 20,
+        right: 24,
+        zIndex: 100,
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: 'rgba(0,0,0,0.05)',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     handle: {
         width: 40,

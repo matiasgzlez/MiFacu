@@ -82,14 +82,16 @@ api.interceptors.response.use(
 
 // Funciones para interactuar con el backend
 export const materiasApi = {
-    getMaterias: async () => {
-        const response = await api.get('/materias');
+    getMaterias: async (carreraId) => {
+        const params = carreraId ? { params: { carreraId } } : {};
+        const response = await api.get('/materias', params);
         return response.data.data || response.data;
     },
 
     // Obtener materias con correlativas para el simulador
-    getMateriasConCorrelativas: async () => {
-        const response = await api.get('/materias');
+    getMateriasConCorrelativas: async (carreraId = null) => {
+        const params = carreraId ? { params: { carreraId } } : {};
+        const response = await api.get('/materias', params);
         return response.data.data || response.data;
     },
 
@@ -161,6 +163,30 @@ export const linksApi = {
     }
 };
 
+// API de Carreras y Universidades
+export const academicApi = {
+    getUniversidades: async () => {
+        const response = await api.get('/carreras/universidades');
+        return response.data.data || response.data;
+    },
+    getCarreras: async (universidadId) => {
+        const response = await api.get(`/carreras/universidades/${universidadId}/carreras`);
+        return response.data.data || response.data;
+    }
+};
+
+// API de Usuarios
+export const usersApi = {
+    getProfile: async (userId) => {
+        const response = await api.get(`/users/${userId}`);
+        return response.data.data || response.data;
+    },
+    updateCareer: async (userId, carreraId) => {
+        const response = await api.put(`/users/${userId}/career`, { carreraId });
+        return response.data.data || response.data;
+    }
+};
+
 // API de Calificaciones de Catedras
 export const calificacionesApi = {
     getAll: async (materiaId = null) => {
@@ -199,6 +225,26 @@ export const calificacionesApi = {
     getProfesoresSugeridos: async (materiaId) => {
         const response = await api.get(`/calificaciones-catedras/materia/${materiaId}/profesores`);
         return response.data.data || response.data;
+    }
+};
+
+// API de Comentarios de Calificaciones
+export const comentariosApi = {
+    getByCalificacion: async (calificacionId) => {
+        const response = await api.get(`/comentarios-calificaciones/${calificacionId}`);
+        return response.data.data || response.data;
+    },
+    getCount: async (calificacionId) => {
+        const response = await api.get(`/comentarios-calificaciones/${calificacionId}/count`);
+        return response.data.data || response.data;
+    },
+    create: async (calificacionId, data) => {
+        const response = await api.post(`/comentarios-calificaciones/${calificacionId}`, data);
+        return response.data.data || response.data;
+    },
+    delete: async (id) => {
+        await api.delete(`/comentarios-calificaciones/${id}`);
+        return true;
     }
 };
 

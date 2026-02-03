@@ -26,6 +26,8 @@ export interface CalificacionCatedra {
     user: {
         id: string;
         email?: string;
+        nombre?: string;
+        avatarUrl?: string;
     } | null;
     esVerificado: boolean;
     votosUtiles: number;
@@ -77,3 +79,25 @@ export const MOTIVOS_REPORTE = [
     'Acoso o discriminacion',
     'Otro motivo',
 ];
+
+export interface ComentarioCalificacion {
+    id: number;
+    calificacionId: number;
+    userId: string;
+    user: {
+        id: string;
+        email?: string;
+        nombre?: string;
+        avatarUrl?: string;
+    } | null;
+    contenido: string;
+    esAnonimo: boolean;
+    esVerificado: boolean;
+    createdAt: string;
+    updatedAt: string;
+}
+
+export interface CreateComentarioDTO {
+    contenido: string;
+    esAnonimo?: boolean;
+}

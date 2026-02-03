@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { materiasApi, correlativasApi } from '../services/api';
+import { materiasApi, correlativasApi, usersApi } from '../services/api';
 import { apiToVisual, puedeDesbloquear, EstadoVisual } from '../utils/estadoMapper';
 
 // Tipo para las correlativas del backend
@@ -221,18 +221,31 @@ export function useSimuladorData(): UseSimuladorDataReturn {
       setLoading(true);
       setError(null);
 
-      // 1. Cargar todas las materias del backend
+      // 0. Obtener el carreraId del usuario
+      let carreraId: string | null = null;
+      if (user?.id) {
+        try {
+          const profile = await usersApi.getProfile(user.id);
+          carreraId = profile.carreraId || null;
+        } catch (e) {
+          console.warn('No se pudo obtener el perfil del usuario:', e);
+        }
+      }
+
+      if (!carreraId) {
+        setError('Debes seleccionar una carrera para usar el simulador. Ve a Perfil > Mi Carrera.');
+        setLoading(false);
+        return;
+      }
+
+      // 1. Cargar materias de la carrera del usuario
       let materiasBackend: MateriaBackend[] = [];
       try {
-        const todas = await materiasApi.getMaterias();
-        // Filtrar solo materias del plan (nivel I-V y numero 1-36)
+        const todas = await materiasApi.getMaterias(carreraId);
+        // Filtrar solo materias con nivel válido
         const nivelesValidos = ['I', 'II', 'III', 'IV', 'V'];
         materiasBackend = todas.filter((m: MateriaBackend) =>
-          m.nivel &&
-          nivelesValidos.includes(m.nivel) &&
-          m.numero &&
-          m.numero >= 1 &&
-          m.numero <= 36
+          m.nivel && nivelesValidos.includes(m.nivel) && m.numero
         );
         // Ordenar por numero
         materiasBackend.sort((a, b) => a.numero - b.numero);
@@ -244,7 +257,7 @@ export function useSimuladorData(): UseSimuladorDataReturn {
       }
 
       if (materiasBackend.length === 0) {
-        setError('No hay materias en el plan de estudios');
+        setError('No hay materias en el plan de estudios de tu carrera');
         setLoading(false);
         return;
       }
@@ -259,45 +272,28 @@ export function useSimuladorData(): UseSimuladorDataReturn {
         }
       });
 
-      // 3. Cargar correlativas del backend (con fallback a hardcodeadas)
+      // 3. Cargar correlativas del backend
       let correlativasBackend: CorrelativaBackend[] = [];
-      let usarCorrelativasBackend = false;
       try {
         correlativasBackend = await correlativasApi.getCorrelativas();
-        if (correlativasBackend && correlativasBackend.length > 0) {
-          usarCorrelativasBackend = true;
-        }
       } catch (e) {
-        // Fallback silencioso a correlativas hardcodeadas
+        console.warn('No se pudieron cargar correlativas del backend:', e);
       }
 
-      // Crear mapa de correlativas por ID de materia (del backend o hardcodeadas)
+      // Crear mapa de correlativas por ID de materia
       const correlativasPorId = new Map<number, { reqsRegularizadas: number[], reqsAprobadas: number[] }>();
 
-      if (usarCorrelativasBackend) {
-        // Usar correlativas del backend (ya vienen por ID)
-        correlativasBackend.forEach(c => {
+      // Usar correlativas del backend (filtrar solo las de las materias de esta carrera)
+      const materiasIds = new Set(materiasBackend.map(m => m.id));
+      correlativasBackend.forEach(c => {
+        // Solo incluir correlativas de materias que pertenecen a la carrera del usuario
+        if (materiasIds.has(c.materiaId)) {
           correlativasPorId.set(c.materiaId, {
-            reqsRegularizadas: c.reqsRegularizadas,
-            reqsAprobadas: c.reqsAprobadas,
+            reqsRegularizadas: c.reqsRegularizadas.filter(id => materiasIds.has(id)),
+            reqsAprobadas: c.reqsAprobadas.filter(id => materiasIds.has(id)),
           });
-        });
-      } else {
-        // Usar correlativas hardcodeadas (convertir números a IDs)
-        Object.entries(CORRELATIVAS_POR_NUMERO).forEach(([numero, correlativas]) => {
-          const materiaId = numeroToId.get(Number(numero));
-          if (materiaId) {
-            correlativasPorId.set(materiaId, {
-              reqsRegularizadas: correlativas.regularizadas
-                .map(num => numeroToId.get(num))
-                .filter((id): id is number => id !== undefined),
-              reqsAprobadas: correlativas.aprobadas
-                .map(num => numeroToId.get(num))
-                .filter((id): id is number => id !== undefined),
-            });
-          }
-        });
-      }
+        }
+      });
 
       // 5. Cargar estados del usuario si esta logueado
       const estadosPorMateriaId = new Map<number, string>();
