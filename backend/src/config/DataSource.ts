@@ -13,6 +13,11 @@ import { ReporteCalificacion } from "../models/reporte-calificacion.model";
 import { ComentarioCalificacion } from "../models/comentario-calificacion.model";
 import { Universidad } from "../models/universidad.model";
 import { Carrera } from "../models/carrera.model";
+import { PomodoroSession } from "../models/pomodoro-session.model";
+import { UserGamification } from "../models/user-gamification.model";
+import { TemaFinal } from "../models/tema-final.model";
+import { VotoTemaFinal } from "../models/voto-tema-final.model";
+import { ReporteTemaFinal } from "../models/reporte-tema-final.model";
 
 dotenv.config();
 
@@ -22,7 +27,7 @@ export const AppDataSource = new DataSource({
     synchronize: false, // Desactivado para evitar errores de duplicación de Enums y conflictos con migraciones manuales
     // Usa migraciones o el script de seed para actualizar el esquema
     logging: process.env.NODE_ENV === 'development',
-    entities: [Materia, Recordatorio, Final, UsuarioMateria, User, Link, CorrelativaDetalle, CalificacionCatedra, VotoCalificacion, ReporteCalificacion, ComentarioCalificacion, Universidad, Carrera],
+    entities: [Materia, Recordatorio, Final, UsuarioMateria, User, Link, CorrelativaDetalle, CalificacionCatedra, VotoCalificacion, ReporteCalificacion, ComentarioCalificacion, Universidad, Carrera, PomodoroSession, UserGamification, TemaFinal, VotoTemaFinal, ReporteTemaFinal],
     extra: {
         ssl: {
             rejectUnauthorized: false // Requerido para la conexión con Supabase

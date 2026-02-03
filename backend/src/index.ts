@@ -18,6 +18,9 @@ import calificacionesCatedrasRoutes from './routes/calificaciones-catedras.route
 import comentariosCalificacionesRoutes from './routes/comentarios-calificaciones.routes';
 import carrerasRoutes from './routes/carreras.routes';
 import usersRoutes from './routes/users.routes';
+import pomodoroRoutes from './routes/pomodoro.routes';
+import gamificationRoutes from './routes/gamification.routes';
+import temasFinalesRoutes from './routes/temas-finales.routes';
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -46,6 +49,9 @@ app.use("/calificaciones-catedras", calificacionesCatedrasRoutes);
 app.use("/comentarios-calificaciones", comentariosCalificacionesRoutes);
 app.use("/carreras", carrerasRoutes);
 app.use("/users", usersRoutes);
+app.use("/pomodoro", pomodoroRoutes);
+app.use("/gamification", gamificationRoutes);
+app.use("/temas-finales", temasFinalesRoutes);
 
 app.get('/', (req, res) => {
     res.status(200).send('MiFacu Backend is running');
