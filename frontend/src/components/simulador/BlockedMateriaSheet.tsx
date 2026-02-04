@@ -57,14 +57,14 @@ export function BlockedMateriaSheet({
     const requiereAprobada = tipoRequerido === 'aprobada';
 
     return (
-      <View key={`${correlativa.id}-${tipoRequerido}`} style={styles.correlativaItem}>
+      <View key={`${correlativa.id}-${tipoRequerido}`} style={[styles.correlativaItem, { backgroundColor: colors.background }]}>
         <View style={[styles.correlativaDot, { backgroundColor: estadoConfig.color }]} />
         <View style={styles.correlativaInfo}>
-          <Text style={styles.correlativaText} numberOfLines={2}>
+          <Text style={[styles.correlativaText, { color: colors.textPrimary }]} numberOfLines={2}>
             {correlativa.nombre}
           </Text>
           <View style={styles.correlativaMeta}>
-            <Text style={styles.correlativaNivel}>Año {correlativa.nivel}</Text>
+            <Text style={[styles.correlativaNivel, { color: colors.textTertiary }]}>Año {correlativa.nivel}</Text>
             <View style={[styles.miniTag, { backgroundColor: estadoConfig.bgColor }]}>
               <Text style={[styles.miniTagText, { color: estadoConfig.color }]}>
                 {estadoConfig.labelShort}
@@ -87,7 +87,7 @@ export function BlockedMateriaSheet({
     <View style={styles.modalContainer}>
       {/* Backdrop - toca para cerrar */}
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Animated.View style={[styles.backdropInner, { opacity: overlayOpacity }]} />
+        <Animated.View style={[styles.backdropInner, { opacity: overlayOpacity, backgroundColor: colors.overlay }]} />
       </Pressable>
 
       {/* Sheet */}
@@ -97,22 +97,23 @@ export function BlockedMateriaSheet({
           {
             transform: [{ translateY: sheetAnim }],
             maxHeight: maxSheetHeight,
+            backgroundColor: colors.backgroundSecondary,
           }
         ]}
       >
         {/* Handle */}
         <View style={styles.handleContainer}>
-          <View style={styles.handle} />
+          <View style={[styles.handle, { backgroundColor: colors.backgroundTertiary }]} />
         </View>
 
         {/* Header fijo */}
-        <View style={styles.headerFixed}>
+        <View style={[styles.headerFixed, { borderBottomColor: colors.separator }]}>
           <View style={styles.iconCircle}>
             <Ionicons name="lock-closed" size={24} color="#FF3B30" />
           </View>
           <View style={styles.headerText}>
             <Text style={styles.title}>Materia Bloqueada</Text>
-            <Text style={styles.materiaNombre} numberOfLines={2}>{materia.nombre}</Text>
+            <Text style={[styles.materiaNombre, { color: colors.textPrimary }]} numberOfLines={2}>{materia.nombre}</Text>
           </View>
         </View>
 
@@ -125,9 +126,9 @@ export function BlockedMateriaSheet({
           nestedScrollEnabled={true}
         >
           {/* Message */}
-          <View style={styles.messageBox}>
-            <Ionicons name="information-circle" size={18} color={SIMULADOR_COLORS.pendiente} />
-            <Text style={styles.messageText}>
+          <View style={[styles.messageBox, { backgroundColor: isDark ? 'rgba(0, 122, 255, 0.12)' : 'rgba(0, 122, 255, 0.06)' }]}>
+            <Ionicons name="information-circle" size={18} color={colors.pendiente} />
+            <Text style={[styles.messageText, { color: colors.textSecondary }]}>
               Necesitas completar estas correlativas:
             </Text>
           </View>
@@ -139,9 +140,9 @@ export function BlockedMateriaSheet({
                 <View style={[styles.sectionIcon, { backgroundColor: 'rgba(255, 149, 0, 0.1)' }]}>
                   <Ionicons name="document-text" size={14} color="#FF9500" />
                 </View>
-                <Text style={styles.sectionTitle}>Regularizar</Text>
-                <View style={styles.countBadge}>
-                  <Text style={styles.countText}>{faltantesRegularizadas.length}</Text>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Regularizar</Text>
+                <View style={[styles.countBadge, { backgroundColor: colors.background }]}>
+                  <Text style={[styles.countText, { color: colors.textSecondary }]}>{faltantesRegularizadas.length}</Text>
                 </View>
               </View>
               {faltantesRegularizadas.map(renderCorrelativaItem)}
@@ -155,9 +156,9 @@ export function BlockedMateriaSheet({
                 <View style={[styles.sectionIcon, { backgroundColor: 'rgba(255, 59, 48, 0.1)' }]}>
                   <Ionicons name="school" size={14} color="#FF3B30" />
                 </View>
-                <Text style={styles.sectionTitle}>Aprobar (con final)</Text>
-                <View style={styles.countBadge}>
-                  <Text style={styles.countText}>{faltantesAprobadas.length}</Text>
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary }]}>Aprobar (con final)</Text>
+                <View style={[styles.countBadge, { backgroundColor: colors.background }]}>
+                  <Text style={[styles.countText, { color: colors.textSecondary }]}>{faltantesAprobadas.length}</Text>
                 </View>
               </View>
               {faltantesAprobadas.map(renderCorrelativaItem)}
@@ -166,7 +167,7 @@ export function BlockedMateriaSheet({
         </ScrollView>
 
         {/* Botón fijo abajo */}
-        <View style={[styles.buttonContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[styles.buttonContainer, { paddingBottom: Math.max(insets.bottom, 16), backgroundColor: colors.backgroundSecondary, borderTopColor: colors.separator }]}>
           <Pressable
             style={styles.closeButton}
             onPress={onClose}
@@ -193,10 +194,8 @@ const styles = StyleSheet.create({
   },
   backdropInner: {
     flex: 1,
-    backgroundColor: SIMULADOR_COLORS.overlay,
   },
   sheet: {
-    backgroundColor: SIMULADOR_COLORS.backgroundSecondary,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     flexDirection: 'column',
@@ -209,7 +208,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 5,
     borderRadius: 3,
-    backgroundColor: SIMULADOR_COLORS.backgroundTertiary,
   },
   headerFixed: {
     flexDirection: 'row',
@@ -217,7 +215,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: SIMULADOR_COLORS.separator,
     gap: 14,
   },
   iconCircle: {
@@ -242,7 +239,6 @@ const styles = StyleSheet.create({
   materiaNombre: {
     fontSize: 17,
     fontWeight: '600',
-    color: SIMULADOR_COLORS.textPrimary,
   },
   scrollView: {
     flexGrow: 1,
@@ -256,7 +252,6 @@ const styles = StyleSheet.create({
   messageBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 122, 255, 0.06)',
     padding: 12,
     borderRadius: 10,
     marginBottom: 20,
@@ -265,7 +260,6 @@ const styles = StyleSheet.create({
   messageText: {
     flex: 1,
     fontSize: 14,
-    color: SIMULADOR_COLORS.textSecondary,
   },
   section: {
     marginBottom: 20,
@@ -287,10 +281,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
-    color: SIMULADOR_COLORS.textPrimary,
   },
   countBadge: {
-    backgroundColor: SIMULADOR_COLORS.background,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 10,
@@ -298,12 +290,10 @@ const styles = StyleSheet.create({
   countText: {
     fontSize: 13,
     fontWeight: '600',
-    color: SIMULADOR_COLORS.textSecondary,
   },
   correlativaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: SIMULADOR_COLORS.background,
     padding: 14,
     borderRadius: 14,
     marginBottom: 8,
@@ -320,7 +310,6 @@ const styles = StyleSheet.create({
   correlativaText: {
     fontSize: 15,
     fontWeight: '500',
-    color: SIMULADOR_COLORS.textPrimary,
     marginBottom: 4,
   },
   correlativaMeta: {
@@ -330,7 +319,6 @@ const styles = StyleSheet.create({
   },
   correlativaNivel: {
     fontSize: 12,
-    color: SIMULADOR_COLORS.textTertiary,
   },
   miniTag: {
     paddingHorizontal: 8,
@@ -353,9 +341,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     paddingHorizontal: 20,
     paddingTop: 12,
-    backgroundColor: SIMULADOR_COLORS.backgroundSecondary,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: SIMULADOR_COLORS.separator,
   },
   closeButton: {
     backgroundColor: SIMULADOR_COLORS.pendiente,
