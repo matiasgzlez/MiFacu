@@ -130,13 +130,11 @@ export default function TimelineChart({
   const month = currentMonth.getMonth();
 
   const canGoBack = useMemo(() => {
-    const prev = new Date(year, month - 1, 1);
-    return prev >= new Date(monthsRange.start.getFullYear(), monthsRange.start.getMonth(), 1);
+    return month > 0 || year > monthsRange.start.getFullYear();
   }, [year, month, monthsRange]);
 
   const canGoForward = useMemo(() => {
-    const next = new Date(year, month + 1, 1);
-    return next <= new Date(monthsRange.end.getFullYear(), monthsRange.end.getMonth(), 1);
+    return month < 11 || year < monthsRange.end.getFullYear();
   }, [year, month, monthsRange]);
 
   const goBack = useCallback(() => {

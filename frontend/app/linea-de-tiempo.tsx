@@ -75,7 +75,7 @@ export default function LineaDeTiempoScreen() {
           >
             <Ionicons name="analytics-outline" size={60} color={theme.separator} />
             <Text style={[styles.emptyText, { color: theme.icon }]}>
-              No hay eventos en este cuatrimestre
+              No hay eventos este año
             </Text>
             <Text style={[styles.emptySubtext, { color: theme.icon }]}>
               Agrega parciales, finales o entregas para ver tu calendario

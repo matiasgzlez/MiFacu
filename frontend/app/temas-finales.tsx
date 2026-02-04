@@ -42,6 +42,7 @@ export default function TemasFinalesScreen() {
         crearTema,
         votar,
         reportar,
+        eliminarTema,
         getEstadisticas,
         refetch,
     } = useTemasFinales(materiaIdNumber);
@@ -50,6 +51,7 @@ export default function TemasFinalesScreen() {
     const [showReportarSheet, setShowReportarSheet] = useState(false);
     const [temaAReportar, setTemaAReportar] = useState<number | null>(null);
     const [estadisticas, setEstadisticas] = useState<EstadisticaTema[]>([]);
+    const [showAllStats, setShowAllStats] = useState(false);
 
     // Cargar estadisticas
     useEffect(() => {
@@ -64,6 +66,11 @@ export default function TemasFinalesScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         votar(id, tipo);
     }, [votar]);
+
+    const handleEliminar = useCallback((id: number) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        eliminarTema(id);
+    }, [eliminarTema]);
 
     const handleReportar = useCallback((id: number) => {
         setTemaAReportar(id);
@@ -93,9 +100,10 @@ export default function TemasFinalesScreen() {
             index={index}
             onVotar={handleVotar}
             onReportar={handleReportar}
+            onEliminar={handleEliminar}
             isOwner={item.userId === user?.id}
         />
-    ), [theme, handleVotar, handleReportar, user?.id]);
+    ), [theme, handleVotar, handleReportar, handleEliminar, user?.id]);
 
     const keyExtractor = useCallback((item: TemaFinal) => item.id.toString(), []);
 
@@ -128,12 +136,13 @@ export default function TemasFinalesScreen() {
         );
     }
 
-    // Top 3 stats component
+    // Stats component with expand/collapse
     const StatsHeader = () => {
         if (estadisticas.length === 0) return null;
 
-        const top3 = estadisticas.slice(0, 3);
+        const visibleStats = showAllStats ? estadisticas : estadisticas.slice(0, 3);
         const totalReportes = estadisticas.reduce((sum, e) => sum + e.veces, 0);
+        const medals = ['\ud83e\udd47', '\ud83e\udd48', '\ud83e\udd49'];
 
         return (
             <View style={[styles.statsContainer, { backgroundColor: isDark ? '#1F2937' : '#FFF7ED' }]}>
@@ -141,12 +150,16 @@ export default function TemasFinalesScreen() {
                     <Ionicons name="trending-up" size={18} color={theme.orange || '#FF9500'} />
                     <Text style={[styles.statsTitle, { color: theme.text }]}>Temas mas frecuentes</Text>
                 </View>
-                {top3.map((stat, idx) => {
+                {visibleStats.map((stat, idx) => {
                     const porcentaje = totalReportes > 0 ? Math.round((stat.veces / totalReportes) * 100) : 0;
-                    const medals = ['\ud83e\udd47', '\ud83e\udd48', '\ud83e\udd49'];
+                    const isTop3 = idx < 3;
                     return (
                         <View key={idx} style={styles.statRow}>
-                            <Text style={styles.statMedal}>{medals[idx]}</Text>
+                            {isTop3 ? (
+                                <Text style={styles.statMedal}>{medals[idx]}</Text>
+                            ) : (
+                                <Text style={[styles.statPosition, { color: theme.icon }]}>{idx + 1}.</Text>
+                            )}
                             <View style={styles.statInfo}>
                                 <Text style={[styles.statTema, { color: theme.text }]} numberOfLines={1}>
                                     {stat.tema}
@@ -157,7 +170,7 @@ export default function TemasFinalesScreen() {
                                             styles.statBar,
                                             {
                                                 width: `${Math.max(porcentaje, 5)}%`,
-                                                backgroundColor: (theme.orange || '#FF9500') + (idx === 0 ? 'CC' : idx === 1 ? '99' : '66'),
+                                                backgroundColor: (theme.orange || '#FF9500') + (idx === 0 ? 'CC' : idx === 1 ? '99' : idx === 2 ? '66' : '50'),
                                             }
                                         ]}
                                     />
@@ -169,6 +182,25 @@ export default function TemasFinalesScreen() {
                         </View>
                     );
                 })}
+                {estadisticas.length > 3 && (
+                    <TouchableOpacity
+                        style={styles.showAllButton}
+                        onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            setShowAllStats(!showAllStats);
+                        }}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={[styles.showAllText, { color: theme.tint }]}>
+                            {showAllStats ? 'Ver menos' : `Ver todos (${estadisticas.length})`}
+                        </Text>
+                        <Ionicons
+                            name={showAllStats ? 'chevron-up' : 'chevron-down'}
+                            size={16}
+                            color={theme.tint}
+                        />
+                    </TouchableOpacity>
+                )}
             </View>
         );
     };
@@ -426,6 +458,12 @@ const styles = StyleSheet.create({
         fontSize: 18,
         width: 24,
     },
+    statPosition: {
+        fontSize: 14,
+        fontWeight: '600',
+        width: 24,
+        textAlign: 'center',
+    },
     statInfo: {
         flex: 1,
     },
@@ -449,6 +487,18 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         minWidth: 70,
         textAlign: 'right',
+    },
+    showAllButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        marginTop: 4,
+        paddingVertical: 8,
+    },
+    showAllText: {
+        fontSize: 14,
+        fontWeight: '600',
     },
     // List
     listContent: {

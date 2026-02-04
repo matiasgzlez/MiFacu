@@ -283,27 +283,11 @@ export default function PerfilScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.icon }]}>CUENTA</Text>
           <View style={[styles.optionsContainer, { backgroundColor: theme.backgroundSecondary }]}>
-            {/* My Subjects */}
-            <TouchableOpacity
-              style={[styles.optionRow, { borderBottomColor: theme.separator }]}
-              onPress={() => router.push('/(tabs)/materias')}
-              activeOpacity={0.6}
-            >
-              <View style={[styles.optionIcon, { backgroundColor: theme.blue }]}>
-                <Ionicons name="school" size={18} color="white" />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={[styles.optionLabel, { color: theme.text }]}>Mis Materias</Text>
-                <Text style={[styles.optionHint, { color: theme.icon }]}>
-                  {stats.aprobadas} aprobadas de {stats.totalPlan}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={theme.separator} />
-            </TouchableOpacity>
+
 
             {/* Change Career */}
             <TouchableOpacity
-              style={[styles.optionRow, { borderBottomColor: theme.separator }]}
+              style={[styles.optionRow, { borderBottomWidth: 0 }]}
               onPress={() => setShowCarreraModal(true)}
               activeOpacity={0.6}
             >
@@ -319,21 +303,7 @@ export default function PerfilScreen() {
               <Ionicons name="chevron-forward" size={18} color={theme.separator} />
             </TouchableOpacity>
 
-            {/* Storage Info */}
-            <View style={styles.optionRow}>
-              <View style={[styles.optionIcon, { backgroundColor: theme.green }]}>
-                <Ionicons name="cloud-done" size={18} color="white" />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={[styles.optionLabel, { color: theme.text }]}>
-                  Sincronizado
-                </Text>
-                <Text style={[styles.optionHint, { color: theme.icon }]}>
-                  Conectado con tu cuenta
-                </Text>
-              </View>
-              <View style={[styles.statusDot, { backgroundColor: theme.green }]} />
-            </View>
+
           </View>
         </View>
 

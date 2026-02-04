@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { StarRating } from './StarRating';
@@ -43,6 +43,7 @@ interface CalificacionCardProps {
     index?: number;
     onVotar: (id: number, tipo: TipoVoto) => void;
     onReportar: (id: number) => void;
+    onEliminar?: (id: number) => void;
     onPress?: () => void;
     isOwner?: boolean;
 }
@@ -61,6 +62,7 @@ export function CalificacionCard({
     index = 0,
     onVotar,
     onReportar,
+    onEliminar,
     onPress,
     isOwner = false,
 }: CalificacionCardProps) {
@@ -98,6 +100,18 @@ export function CalificacionCard({
     const handleReportar = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         onReportar(calificacion.id);
+    };
+
+    const handleEliminar = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        Alert.alert(
+            'Eliminar reseña',
+            '¿Estás seguro de que querés eliminar tu reseña? Esta acción no se puede deshacer.',
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Eliminar', style: 'destructive', onPress: () => onEliminar?.(calificacion.id) },
+            ]
+        );
     };
 
     const loadComentarios = useCallback(async () => {
@@ -285,6 +299,16 @@ export function CalificacionCard({
                                 </Text>
                             )}
                         </TouchableOpacity>
+
+                        {isOwner && onEliminar && (
+                            <TouchableOpacity
+                                style={styles.actionButton}
+                                onPress={handleEliminar}
+                                activeOpacity={0.7}
+                            >
+                                <Ionicons name="trash-outline" size={16} color={theme.red || '#FF3B30'} />
+                            </TouchableOpacity>
+                        )}
 
                         {!isOwner && (
                             <TouchableOpacity

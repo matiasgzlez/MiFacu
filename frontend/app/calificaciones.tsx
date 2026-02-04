@@ -43,6 +43,7 @@ export default function CalificacionesScreen() {
         crearCalificacion,
         votar,
         reportar,
+        eliminarCalificacion,
         refetch,
     } = useCalificaciones(materiaIdNumber);
 
@@ -56,6 +57,11 @@ export default function CalificacionesScreen() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         votar(id, tipo);
     }, [votar]);
+
+    const handleEliminar = useCallback((id: number) => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        eliminarCalificacion(id);
+    }, [eliminarCalificacion]);
 
     const handleReportar = useCallback((id: number) => {
         setCalificacionAReportar(id);
@@ -86,9 +92,10 @@ export default function CalificacionesScreen() {
             index={index}
             onVotar={handleVotar}
             onReportar={handleReportar}
+            onEliminar={handleEliminar}
             isOwner={item.userId === user?.id}
         />
-    ), [theme, handleVotar, handleReportar, user?.id]);
+    ), [theme, handleVotar, handleReportar, handleEliminar, user?.id]);
 
     const keyExtractor = useCallback((item: CalificacionCatedra) => item.id.toString(), []);
 

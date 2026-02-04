@@ -621,7 +621,7 @@ export default function HomeScreen() {
         ) : (
           <>
             {/* QUICK ACCESS SECTION - Grid 2x2 */}
-            <View style={styles.section}>
+            <View style={[styles.section, { marginTop: 20 }]}>
               <View style={styles.sectionHeader}>
                 <Text style={[styles.sectionTitle, { color: theme.icon }]}>ACCESO RÁPIDO</Text>
                 <TouchableOpacity onPress={openEditModal} style={styles.editButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { TemaFinal, TipoVoto } from '../../types/temas-finales';
@@ -40,6 +40,7 @@ interface TemaFinalCardProps {
     index?: number;
     onVotar: (id: number, tipo: TipoVoto) => void;
     onReportar: (id: number) => void;
+    onEliminar?: (id: number) => void;
     isOwner?: boolean;
 }
 
@@ -58,6 +59,7 @@ export function TemaFinalCard({
     index = 0,
     onVotar,
     onReportar,
+    onEliminar,
     isOwner = false,
 }: TemaFinalCardProps) {
     const stripColor = getStripColor(tema, theme);
@@ -73,6 +75,18 @@ export function TemaFinalCard({
     const handleReportar = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         onReportar(tema.id);
+    };
+
+    const handleEliminar = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        Alert.alert(
+            'Eliminar tema',
+            '¿Estás seguro de que querés eliminar este tema? Esta acción no se puede deshacer.',
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Eliminar', style: 'destructive', onPress: () => onEliminar?.(tema.id) },
+            ]
+        );
     };
 
     return (
@@ -184,6 +198,16 @@ export function TemaFinalCard({
                             {tema.votosNoUtiles}
                         </Text>
                     </TouchableOpacity>
+
+                    {isOwner && onEliminar && (
+                        <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={handleEliminar}
+                            activeOpacity={0.7}
+                        >
+                            <Ionicons name="trash-outline" size={16} color={theme.red || '#FF3B30'} />
+                        </TouchableOpacity>
+                    )}
 
                     {!isOwner && (
                         <TouchableOpacity

@@ -43,29 +43,11 @@ export interface TimelineData {
 
 // --- Helpers ---
 
-function getSemesterRange(year: number): { start: Date; end: Date; label: string } {
-  const month = new Date().getMonth() + 1; // 1-12
-  // Feb-Jul → 1er cuatrimestre (incluye febrero como periodo de preparacion)
-  if (month >= 2 && month <= 7) {
-    return {
-      start: new Date(year, 1, 1),   // 1 Feb
-      end: new Date(year, 6, 31),    // 31 Jul
-      label: `1er Cuatrimestre ${year}`,
-    };
-  }
-  // Ago-Ene → 2do cuatrimestre
-  if (month >= 8) {
-    return {
-      start: new Date(year, 7, 1),     // 1 Ago
-      end: new Date(year, 11, 31),     // 31 Dic
-      label: `2do Cuatrimestre ${year}`,
-    };
-  }
-  // Enero → mostrar 2do cuatrimestre del año anterior (cierre)
+function getYearRange(year: number): { start: Date; end: Date; label: string } {
   return {
-    start: new Date(year - 1, 7, 1),   // 1 Ago año anterior
-    end: new Date(year, 1, 28),        // 28 Feb año actual
-    label: `2do Cuatrimestre ${year - 1}`,
+    start: new Date(year, 0, 1),    // 1 Ene
+    end: new Date(year, 11, 31),    // 31 Dic
+    label: `${year}`,
   };
 }
 
@@ -120,7 +102,7 @@ export function useTimelineData() {
 
       const now = new Date();
       const year = now.getFullYear();
-      const { start, end, label } = getSemesterRange(year);
+      const { start, end, label } = getYearRange(year);
 
       // Build events from recordatorios (Parcial / Entrega)
       const events: TimelineEvent[] = [];
@@ -159,7 +141,7 @@ export function useTimelineData() {
         });
       }
 
-      // Calcular cantidad de semanas segun el rango del cuatrimestre
+      // Calcular cantidad de semanas segun el rango anual
       const totalWeeks = Math.ceil((end.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
       const weeks: WeekData[] = [];
       const today = startOfDay(now);
