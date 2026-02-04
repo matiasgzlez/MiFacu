@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  Dimensions,
   Image,
   StatusBar,
   Text,
@@ -12,7 +11,6 @@ import {
   TextInput,
   Pressable,
   Alert,
-  Keyboard,
   Platform,
   RefreshControl,
   Animated,
@@ -26,7 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../src/config/supabase';
-import { Colors, mifacuNavy } from '../../src/constants/theme';
+import { Colors, mifacuNavy, mifacuGold } from '../../src/constants/theme';
 import { useThemeColor } from '../../src/hooks/use-theme-color';
 import { useTheme } from '../../src/context/ThemeContext';
 import { useAuth } from '../../src/context/AuthContext';
@@ -35,7 +33,6 @@ import { HomeSkeleton } from '../../src/components/Skeleton';
 
 // Hooks
 import { useHomeData } from '../../src/hooks/useHomeData';
-import { useNotificationAnimation } from '../../src/hooks/useSheetAnimation';
 
 // Components
 import {
@@ -49,7 +46,6 @@ import {
 // Types
 import type { ThemeColors } from '../../src/types';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const QUICK_ACCESS_KEY = '@mifacu_quick_access';
 
 // Available quick access options with SF Symbol-like icons
@@ -68,8 +64,8 @@ type ShortcutId = typeof AVAILABLE_SHORTCUTS[number]['id'];
 
 const DEFAULT_SHORTCUTS: ShortcutId[] = ['finales', 'parciales', 'simulador', 'horarios'];
 
-// Shortcut Card Component - Grid Style
-const ShortcutCard = React.memo(({
+// Compact Shortcut Item for horizontal row
+const ShortcutItem = React.memo(({
   shortcut,
   theme,
   isDarkMode,
@@ -84,7 +80,7 @@ const ShortcutCard = React.memo(({
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.95,
+      toValue: 0.9,
       useNativeDriver: true,
       friction: 8,
     }).start();
@@ -103,11 +99,7 @@ const ShortcutCard = React.memo(({
   };
 
   return (
-    <Animated.View style={[styles.shortcutGridCard, {
-      transform: [{ scale: scaleAnim }],
-      backgroundColor: isDarkMode ? '#1C1C1E' : '#FFFFFF',
-      borderColor: isDarkMode ? '#38383A' : '#E2E8F0',
-    }]}>
+    <Animated.View style={[styles.shortcutItem, { transform: [{ scale: scaleAnim }] }]}>
       <Pressable
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -115,12 +107,12 @@ const ShortcutCard = React.memo(({
         }}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
-        style={styles.shortcutGridCardInner}
+        style={styles.shortcutItemInner}
       >
-        <View style={[styles.shortcutGridIcon, { backgroundColor: getColor(shortcut.color) }]}>
-          <Ionicons name={shortcut.icon as any} size={22} color="white" />
+        <View style={[styles.shortcutIcon, { backgroundColor: getColor(shortcut.color) }]}>
+          <Ionicons name={shortcut.icon as any} size={20} color="white" />
         </View>
-        <Text style={[styles.shortcutGridLabel, { color: theme.text }]} numberOfLines={1}>
+        <Text style={[styles.shortcutLabel, { color: theme.text }]} numberOfLines={1}>
           {shortcut.label}
         </Text>
       </Pressable>
@@ -142,6 +134,8 @@ export default function HomeScreen() {
     stats,
     carreraProgreso,
     proximaClase,
+    clasesHoy,
+    subtituloContextual,
     privacyMode,
     onRefresh,
     togglePrivacyMode,
@@ -164,7 +158,6 @@ export default function HomeScreen() {
   const [progressCollapsed, setProgressCollapsed] = useState(false);
   const progressAnim = useRef(new Animated.Value(1)).current;
 
-  // Load collapsed preference
   useEffect(() => {
     AsyncStorage.getItem('@mifacu_progress_collapsed').then((val) => {
       if (val === 'true') {
@@ -192,7 +185,6 @@ export default function HomeScreen() {
   const [addingTask, setAddingTask] = useState(false);
 
   // Animations
-  const notification = useNotificationAnimation();
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<Animated.ScrollView>(null);
   const taskInputRef = useRef<TextInput>(null);
@@ -223,7 +215,7 @@ export default function HomeScreen() {
   // Onboarding: Si no hay carrera, mostrar modal
   useEffect(() => {
     if (user && !userCarrera && !loading) {
-      setTimeout(() => setShowCarreraModal(true), 1500); // Pequeño delay para dejar cargar el dashboard
+      setTimeout(() => setShowCarreraModal(true), 1500);
     }
   }, [user, userCarrera, loading]);
 
@@ -242,13 +234,6 @@ export default function HomeScreen() {
     };
     loadShortcuts();
   }, []);
-
-  // Show notification when data loads
-  useEffect(() => {
-    if (!loading && proximaClase) {
-      notification.show();
-    }
-  }, [loading, proximaClase]);
 
   // Stats modal handlers
   const openStatsModal = useCallback(() => {
@@ -283,19 +268,13 @@ export default function HomeScreen() {
     ]).start(() => setShowStatsModal(false));
   }, []);
 
-  const handlePrivacyToggle = useCallback(async () => {
-    await togglePrivacyMode();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [togglePrivacyMode]);
-
   const handleAddTask = useCallback(async () => {
     if (!newTask.trim() || addingTask) return;
 
     const taskText = newTask.trim();
     const taskDescription = newTaskDescription.trim() || undefined;
-    const tempId = Date.now(); // ID temporal para optimistic update
+    const tempId = Date.now();
 
-    // Optimistic update - agregar inmediatamente a la UI
     const optimisticTask = {
       id: tempId,
       nombre: taskText,
@@ -310,7 +289,6 @@ export default function HomeScreen() {
     setNewTaskDescription('');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Guardar en background
     try {
       setAddingTask(true);
       const created = await DataRepository.createRecordatorio(false, {
@@ -321,11 +299,9 @@ export default function HomeScreen() {
         tipo: 'quick_task',
       });
 
-      // Reemplazar el optimistic con el real
       setTasks((prev) => prev.map((t) => (t.id === tempId ? created : t)));
     } catch (error) {
       console.error('Error creando tarea:', error);
-      // Rollback - remover la tarea optimistic
       setTasks((prev) => prev.filter((t) => t.id !== tempId));
       Alert.alert('Error', 'No se pudo agregar la tarea');
     } finally {
@@ -391,17 +367,15 @@ export default function HomeScreen() {
         return;
       }
 
-      // 1. Update in our DB (critical for filtering materias)
       await DataRepository.updateCareer(userId, carreraId);
 
-      // 2. Update in Supabase Metadata (for UI display)
       const { error } = await supabase.auth.updateUser({
         data: { carrera: carreraNombre, carreraId: carreraId }
       });
       if (error) throw error;
 
       setShowCarreraModal(false);
-      loadData(); // Re-fetch to update progress card
+      loadData();
     } catch (error) {
       console.error('Error selecting carrera:', error);
       Alert.alert('Error', 'No se pudo guardar la carrera');
@@ -417,6 +391,18 @@ export default function HomeScreen() {
   const heroGradientColors = isDarkMode
     ? ['#0A1628', '#050D1A'] as const
     : ['#1E3A8A', '#0F1D45'] as const;
+
+  // Timeline date
+  const today = new Date();
+  const diasNombres = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+  const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+  const timelineDate = `Hoy, ${diasNombres[today.getDay()]} ${today.getDate()} de ${mesesNombres[today.getMonth()]}`;
+
+  // Timeline line color
+  const timelineColor = isDarkMode ? theme.tint : mifacuNavy;
+
+  // Hero card: free day or has class
+  const isDiaLibre = !proximaClase || proximaClase.tipo === 'Horarios';
 
   return (
     <KeyboardAvoidingView
@@ -477,7 +463,7 @@ export default function HomeScreen() {
           />
         }
       >
-        {/* LARGE TITLE HEADER - Hero Gradient */}
+        {/* COMPACT HEADER - Hero Gradient */}
         <Animated.View style={[{ opacity: largeTitleOpacity }]}>
           <LinearGradient
             colors={heroGradientColors}
@@ -485,24 +471,20 @@ export default function HomeScreen() {
           >
             <SafeAreaView edges={['top']}>
               <View style={styles.headerTop}>
-                <View>
-                  <Text style={[styles.headerLabel, { color: 'rgba(255,255,255,0.6)', letterSpacing: 1.5, fontSize: 11, fontWeight: '700' }]}>DASHBOARD DE ESTUDIANTE</Text>
-                  <Text style={[styles.headerTitle, { color: '#FFFFFF', fontWeight: '900' }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.headerTitle}>
                     {currentGreeting}, {userName}
                   </Text>
+                  {!loading && (
+                    <Text style={styles.headerSubtitle}>
+                      {subtituloContextual}
+                    </Text>
+                  )}
                 </View>
                 <TouchableOpacity
                   onPress={() => router.push('/perfil')}
                   activeOpacity={0.8}
-                  style={[
-                    styles.headerAvatarContainer,
-                    {
-                      borderColor: 'rgba(255,255,255,0.6)',
-                      borderWidth: 2,
-                      padding: 2,
-                      borderRadius: 24
-                    }
-                  ]}
+                  style={[styles.headerAvatarContainer, { borderColor: mifacuGold }]}
                 >
                   <Image
                     source={{ uri: user?.user_metadata?.avatar_url || 'https://i.pravatar.cc/100?img=33' }}
@@ -512,7 +494,7 @@ export default function HomeScreen() {
               </View>
 
               {/* PROGRESS CARD - Collapsible */}
-              <View style={styles.progressCard}>
+              <View style={styles.progressCardContainer}>
                 <Animated.View style={{
                   maxHeight: progressAnim.interpolate({
                     inputRange: [0, 1],
@@ -524,29 +506,25 @@ export default function HomeScreen() {
                   <Pressable onPress={openStatsModal} style={({ pressed }) => [{ opacity: pressed ? 0.9 : 1 }]}>
                     <View style={styles.progressContent}>
                       <View style={styles.progressInfo}>
-                        <Text style={[styles.progressSubtitle, { color: 'rgba(255,255,255,0.7)' }]} numberOfLines={1}>
-                          {user?.user_metadata?.carrera || 'Lic. en Administración'}
+                        <Text style={styles.progressSubtitle} numberOfLines={1}>
+                          {user?.user_metadata?.carrera || 'Mi carrera'}
                         </Text>
-                        <Text style={[styles.progressPercentage, { color: '#FFFFFF', fontWeight: '800' }]}>
-                          {privacyMode ? '•••' : `${carreraProgreso}% Completo`}
+                        <Text style={styles.progressPercentage}>
+                          {privacyMode ? '•••' : `${carreraProgreso}%`}
                         </Text>
                       </View>
-                      <View style={[styles.progressBarBg, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
+                      <View style={styles.progressBarBg}>
                         <Animated.View
                           style={[
                             styles.progressBarFill,
                             {
                               width: privacyMode ? '0%' : `${carreraProgreso}%`,
-                              backgroundColor: '#FFFFFF',
                               opacity: privacyMode ? 0 : 1,
                             },
                           ]}
                         />
                       </View>
                     </View>
-                    {privacyMode && (
-                      <View style={[StyleSheet.absoluteFill, styles.progressPrivacy, { backgroundColor: 'rgba(255,255,255,0.1)' }]} />
-                    )}
                   </Pressable>
                 </Animated.View>
                 <Pressable
@@ -568,70 +546,66 @@ export default function HomeScreen() {
           </LinearGradient>
         </Animated.View>
 
-        {/* NEXT CLASS NOTIFICATION */}
-        {!loading && proximaClase && (
-          <Animated.View
-            style={[
-              styles.inlinePillContainer,
-              {
-                opacity: notification.opacity,
-                transform: [{ translateY: notification.translateY }],
-              },
-            ]}
-          >
-            <Pressable
-              style={({ pressed }) => [
-                styles.nextStepPill,
-                {
-                  backgroundColor: isDarkMode ? theme.tint : mifacuNavy,
-                  opacity: pressed ? 0.9 : 1,
-                  borderWidth: isDarkMode ? 0 : 1,
-                  borderColor: 'rgba(255,255,255,0.15)'
-                },
-              ]}
-              onPress={() => router.push('/horarios')}
-            >
-              <View style={styles.pillHeader}>
-                <View style={[styles.pillBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-                  <Ionicons name="notifications" size={14} color="white" />
-                  <Text style={styles.pillBadgeText}>{proximaClase.tipo}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.7)" />
-              </View>
-              <Text style={[styles.pillMateria, { color: 'white', fontWeight: '800' }]}>{proximaClase.materia}</Text>
-              <View style={styles.pillFooter}>
-                <View style={styles.pillInfoItem}>
-                  <Ionicons name="time" size={14} color="rgba(255,255,255,0.8)" />
-                  <Text style={styles.pillInfoText}>{proximaClase.hora}</Text>
-                </View>
-                {proximaClase.aula && proximaClase.aula !== '-' && (
-                  <View style={[styles.pillInfoItem, styles.pillInfoItemSpaced]}>
-                    <Ionicons name="location" size={14} color="rgba(255,255,255,0.8)" />
-                    <Text style={styles.pillInfoText}>{proximaClase.aula}</Text>
-                  </View>
-                )}
-              </View>
-            </Pressable>
-          </Animated.View>
-        )}
-
         {/* SKELETON LOADING OR CONTENT */}
         {loading ? (
           <HomeSkeleton />
         ) : (
           <>
-            {/* QUICK ACCESS SECTION - Grid 2x2 */}
-            <View style={[styles.section, { marginTop: 20 }]}>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: theme.icon }]}>ACCESO RÁPIDO</Text>
-                <TouchableOpacity onPress={openEditModal} style={styles.editButton} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Text style={[styles.editButtonText, { color: theme.tint }]}>Editar</Text>
-                </TouchableOpacity>
-              </View>
+            {/* ═══ BENTO GRID ═══ */}
+            <View style={styles.bentoSection}>
+              {/* Hero Card — Próxima Clase */}
+              <Pressable
+                onPress={() => router.push('/horarios')}
+                style={({ pressed }) => [
+                  styles.heroCard,
+                  {
+                    backgroundColor: isDarkMode ? 'rgba(10,22,40,0.9)' : mifacuNavy,
+                    opacity: pressed ? 0.9 : 1,
+                  },
+                ]}
+              >
+                {isDiaLibre ? (
+                  <>
+                    <View style={styles.heroIconRow}>
+                      <Ionicons name="sunny" size={28} color="rgba(255,255,255,0.8)" />
+                    </View>
+                    <Text style={styles.heroLabel}>Día libre</Text>
+                    <Text style={styles.heroHint}>Sin clases hoy</Text>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.heroBadgeRow}>
+                      <View style={styles.heroBadge}>
+                        <View style={[styles.heroBadgeDot, {
+                          backgroundColor: proximaClase?.tipo === 'Clase Actual' ? '#30D158' : '#FF9F0A',
+                        }]} />
+                        <Text style={styles.heroBadgeText}>{proximaClase?.tipo}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.5)" />
+                    </View>
+                    <Text style={styles.heroMateria} numberOfLines={2}>
+                      {proximaClase?.materia}
+                    </Text>
+                    <View style={styles.heroFooter}>
+                      <View style={styles.heroInfoItem}>
+                        <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.7)" />
+                        <Text style={styles.heroInfoText}>{proximaClase?.hora}</Text>
+                      </View>
+                      {proximaClase?.aula && proximaClase.aula !== '-' && (
+                        <View style={[styles.heroInfoItem, { marginLeft: 12 }]}>
+                          <Ionicons name="location-outline" size={14} color="rgba(255,255,255,0.7)" />
+                          <Text style={styles.heroInfoText}>{proximaClase.aula}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </>
+                )}
+              </Pressable>
 
-              <View style={styles.shortcutGrid}>
+              {/* Row 2: Shortcuts horizontal */}
+              <View style={styles.shortcutsRow}>
                 {activeShortcuts.map((shortcut) => (
-                  <ShortcutCard
+                  <ShortcutItem
                     key={shortcut.id}
                     shortcut={shortcut}
                     theme={theme}
@@ -639,29 +613,121 @@ export default function HomeScreen() {
                     onPress={() => router.push(shortcut.route as any)}
                   />
                 ))}
+                <Pressable
+                  onPress={openEditModal}
+                  style={styles.shortcutItemInner}
+                >
+                  <View style={[styles.shortcutIcon, { backgroundColor: isDarkMode ? '#38383A' : '#E2E8F0' }]}>
+                    <Ionicons name="pencil" size={18} color={theme.icon} />
+                  </View>
+                  <Text style={[styles.shortcutLabel, { color: theme.icon }]}>Editar</Text>
+                </Pressable>
               </View>
             </View>
 
-            {/* QUICK TASKS SECTION - Mockup Style */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: isDarkMode ? theme.text : mifacuNavy }]}>TAREAS RÁPIDAS</Text>
-              </View>
-              <View style={[styles.tasksContainer, { backgroundColor: cardColor, borderWidth: isDarkMode ? 0 : 1, borderColor: '#E2E8F0' }]}>
-                {/* Task Input */}
-                <View style={[styles.taskInputRow, { backgroundColor: isDarkMode ? 'transparent' : '#F8FAFC' }]}>
+            {/* ═══ TU DÍA — TIMELINE ═══ */}
+            <View style={styles.timelineSection}>
+              <Text style={[styles.timelineHeader, { color: theme.text }]}>Tu día</Text>
+              <Text style={[styles.timelineDate, { color: theme.icon }]}>{timelineDate}</Text>
+
+              <View style={[styles.timelineContainer, { backgroundColor: cardColor, borderColor: isDarkMode ? '#38383A' : '#E2E8F0' }]}>
+                {/* Timeline Line */}
+                <View style={[styles.timelineLine, { backgroundColor: isDarkMode ? theme.tint + '30' : mifacuNavy + '15' }]} />
+
+                {/* Classes */}
+                {clasesHoy.length > 0 && clasesHoy.map((clase, index) => (
+                  <View
+                    key={`clase-${index}`}
+                    style={[
+                      styles.timelineItem,
+                      clase.esActual && {
+                        backgroundColor: isDarkMode ? theme.tint + '12' : mifacuNavy + '08',
+                        borderRadius: 12,
+                        marginHorizontal: -4,
+                        paddingHorizontal: 4 + 12,
+                      },
+                      index === 0 && { paddingTop: 16 },
+                    ]}
+                  >
+                    <View style={[
+                      styles.timelineDot,
+                      {
+                        backgroundColor: clase.esActual
+                          ? (isDarkMode ? theme.tint : mifacuNavy)
+                          : timelineColor,
+                        borderColor: cardColor,
+                      },
+                      clase.esActual && styles.timelineDotActive,
+                    ]} />
+                    <View style={styles.timelineItemContent}>
+                      <Text style={[styles.timelineTime, { color: clase.esActual ? (isDarkMode ? theme.tint : mifacuNavy) : theme.icon }]}>
+                        {clase.hora}
+                      </Text>
+                      <Text style={[styles.timelineMateria, { color: theme.text }]} numberOfLines={1}>
+                        {clase.materia}
+                      </Text>
+                      {clase.aula !== '-' && (
+                        <Text style={[styles.timelineAula, { color: theme.icon }]}>
+                          {clase.aula}
+                        </Text>
+                      )}
+                    </View>
+                    {clase.esActual && (
+                      <View style={[styles.timelineNowBadge, { backgroundColor: isDarkMode ? theme.tint : mifacuNavy }]}>
+                        <Text style={styles.timelineNowText}>Ahora</Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+
+                {/* Separator between classes and tasks */}
+                {clasesHoy.length > 0 && (tasks.length > 0 || true) && (
+                  <View style={[styles.timelineSeparator, { borderColor: separatorColor }]} />
+                )}
+
+                {/* Tasks */}
+                {tasks.length > 0 && tasks.map((task, index) => (
+                  <AnimatedItem key={task.id} index={index} delay={40}>
+                    <View style={styles.taskItemWrapper}>
+                      <SwipeableTask onDelete={() => handleCompleteTask(task.id)} theme={theme}>
+                        <TaskItem
+                          task={task}
+                          onDelete={() => handleCompleteTask(task.id)}
+                          theme={theme}
+                          separatorColor={separatorColor}
+                        />
+                      </SwipeableTask>
+                    </View>
+                  </AnimatedItem>
+                ))}
+
+                {/* Empty state */}
+                {clasesHoy.length === 0 && tasks.length === 0 && (
+                  <View style={styles.emptyTimeline}>
+                    <Ionicons name="leaf-outline" size={28} color={theme.separator} />
+                    <Text style={[styles.emptyTimelineText, { color: theme.icon }]}>
+                      Nada programado hoy
+                    </Text>
+                    <Text style={[styles.emptyTimelineHint, { color: theme.separator }]}>
+                      Agrega una tarea para empezar
+                    </Text>
+                  </View>
+                )}
+
+                {/* Task Input — integrated at the bottom */}
+                <View style={[styles.taskInputRow, { borderTopColor: separatorColor }]}>
+                  <View style={[styles.timelineDot, styles.timelineDotEmpty, { borderColor: timelineColor + '60' }]} />
                   <View style={styles.taskInputFields}>
                     <TextInput
                       ref={taskInputRef}
-                      placeholder="Nueva tarea..."
+                      placeholder="+ Nueva tarea..."
                       placeholderTextColor={theme.icon}
                       style={[styles.taskInput, { color: theme.text }]}
                       value={newTask}
                       onChangeText={setNewTask}
                       onFocus={() => {
-                        // Scroll suave para que el input sea visible
                         setTimeout(() => {
-                          (scrollViewRef.current as any)?.scrollTo?.({ y: 400, animated: true });
+                          (scrollViewRef.current as any)?.scrollToEnd?.({ animated: true });
                         }, 150);
                       }}
                       onSubmitEditing={() => {
@@ -685,60 +751,25 @@ export default function HomeScreen() {
                       />
                     )}
                   </View>
-                  <Pressable
-                    onPress={handleAddTask}
-                    disabled={addingTask || !newTask.trim()}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                    style={({ pressed }) => [
-                      styles.addTaskButton,
-                      {
-                        backgroundColor: newTask.trim() ? (isDarkMode ? theme.tint : mifacuNavy) : theme.separator,
-                        opacity: pressed && newTask.trim() ? 0.7 : 1,
-                        transform: [{ scale: pressed && newTask.trim() ? 0.9 : 1 }],
-                      },
-                    ]}
-                  >
-                    <Ionicons name="arrow-up" size={16} color="white" />
-                  </Pressable>
+                  {newTask.trim().length > 0 && (
+                    <Pressable
+                      onPress={handleAddTask}
+                      disabled={addingTask || !newTask.trim()}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      style={({ pressed }) => [
+                        styles.addTaskButton,
+                        {
+                          backgroundColor: isDarkMode ? theme.tint : mifacuNavy,
+                          opacity: pressed ? 0.7 : 1,
+                          transform: [{ scale: pressed ? 0.9 : 1 }],
+                        },
+                      ]}
+                    >
+                      <Ionicons name="arrow-up" size={16} color="white" />
+                    </Pressable>
+                  )}
                 </View>
-
-                {/* Divider */}
-                {tasks.length > 0 && (
-                  <View style={[styles.tasksDivider, { backgroundColor: separatorColor }]} />
-                )}
-
-                {/* Tasks List */}
-                {tasks.length === 0 ? (
-                  <View style={styles.emptyTasks}>
-                    <Ionicons name="checkmark-circle-outline" size={32} color={theme.separator} />
-                    <Text style={[styles.emptyTasksText, { color: theme.icon }]}>Sin tareas pendientes</Text>
-                    <Text style={[styles.emptyTasksHint, { color: theme.separator }]}>Escribe arriba para agregar</Text>
-                  </View>
-                ) : (
-                  tasks.map((task, index) => (
-                    <AnimatedItem key={task.id} index={index} delay={40}>
-                      <View style={[
-                        styles.taskItemWrapper,
-                        index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: separatorColor }
-                      ]}>
-                        <SwipeableTask onDelete={() => handleCompleteTask(task.id)} theme={theme}>
-                          <TaskItem
-                            task={task}
-                            onDelete={() => handleCompleteTask(task.id)}
-                            theme={theme}
-                            separatorColor={separatorColor}
-                          />
-                        </SwipeableTask>
-                      </View>
-                    </AnimatedItem>
-                  ))
-                )}
               </View>
-            </View>
-
-            <View style={styles.infoBox}>
-              <Ionicons name="checkmark-circle" size={14} color={theme.green} />
-              <Text style={[styles.infoText, { color: theme.icon }]}>Sincronizado</Text>
             </View>
           </>
         )}
@@ -879,34 +910,41 @@ const styles = StyleSheet.create({
   headerInlineAvatar: { padding: 2 },
   avatarSmall: { width: 32, height: 32, borderRadius: 16 },
 
-  // Hero gradient header
+  // Hero gradient header — compact
   heroGradient: {
     paddingTop: 50,
-    paddingBottom: 20,
+    paddingBottom: 16,
     paddingHorizontal: 20,
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 14,
   },
-  headerLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    marginBottom: 4,
-    textTransform: 'uppercase',
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    color: '#FFFFFF',
   },
-  headerTitle: { fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
-  headerAvatarContainer: { borderWidth: 2, padding: 2, borderRadius: 50 },
-  avatarLarge: { width: 44, height: 44, borderRadius: 22 },
+  headerSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 2,
+  },
+  headerAvatarContainer: {
+    borderWidth: 2,
+    padding: 2,
+    borderRadius: 24,
+  },
+  avatarLarge: { width: 40, height: 40, borderRadius: 20 },
 
-  // Progress Card - Integrated in gradient
-  progressCard: {
+  // Progress Card - Collapsible in header gradient
+  progressCardContainer: {
     borderRadius: 16,
     overflow: 'hidden',
-    marginTop: 5,
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
   progressContent: {
@@ -923,22 +961,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flex: 1,
     marginRight: 10,
+    color: 'rgba(255,255,255,0.7)',
   },
   progressPercentage: {
     fontSize: 14,
     fontWeight: '800',
+    color: '#FFFFFF',
   },
   progressBarBg: {
     height: 10,
     borderRadius: 5,
     width: '100%',
     overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.15)',
   },
   progressBarFill: {
     height: '100%',
     borderRadius: 5,
+    backgroundColor: '#FFFFFF',
   },
-  progressPrivacy: { borderRadius: 16, opacity: 0.2 },
   progressToggle: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -957,172 +998,251 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: 120 },
 
-  section: { marginBottom: 28, paddingHorizontal: 20 },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-    paddingHorizontal: 4,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  editButton: { paddingVertical: 4, paddingHorizontal: 8 },
-  editButtonText: { fontSize: 15, fontWeight: '500' },
-
-  // Notification pill
-  inlinePillContainer: { paddingHorizontal: 20, marginBottom: 24, marginTop: 4 },
-  nextStepPill: {
-    padding: 18,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  pillHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  pillBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  pillBadgeText: {
-    color: 'white',
-    fontSize: 11,
-    fontWeight: '700',
-    marginLeft: 5,
-    textTransform: 'uppercase',
-  },
-  pillMateria: {
-    fontSize: 20,
-    fontWeight: '800',
-    marginBottom: 12,
-    letterSpacing: -0.3,
-  },
-  pillFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.15)',
-    paddingTop: 12,
-  },
-  pillInfoItem: { flexDirection: 'row', alignItems: 'center' },
-  pillInfoItemSpaced: { marginLeft: 16 },
-  pillInfoText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 6,
-    opacity: 0.9,
-  },
-
-  // Shortcuts - Grid 2x2
-  shortcutGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  // ═══ BENTO GRID ═══
+  bentoSection: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
     gap: 12,
   },
-  shortcutGridCard: {
-    width: '48%' as any,
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: 'hidden',
+
+  // Hero Card — Próxima Clase (full width)
+  heroCard: {
+    borderRadius: 20,
+    padding: 16,
+    justifyContent: 'space-between',
+    minHeight: 120,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 3,
   },
-  shortcutGridCardInner: {
-    padding: 16,
-    alignItems: 'center',
+  heroIconRow: {
+    marginBottom: 12,
   },
-  shortcutGridIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+  heroLabel: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  heroHint: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  heroBadgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 8,
   },
-  shortcutGridLabel: {
-    fontSize: 14,
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    gap: 5,
+  },
+  heroBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  heroBadgeText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  heroMateria: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginBottom: 10,
+  },
+  heroFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  heroInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  heroInfoText: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+
+  // Shortcuts Row
+  shortcutsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  shortcutItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  shortcutItemInner: {
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+  },
+  shortcutIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shortcutLabel: {
+    fontSize: 11,
     fontWeight: '600',
     textAlign: 'center',
   },
 
-  // Tasks
-  tasksContainer: {
+  // ═══ TIMELINE ═══
+  timelineSection: {
+    paddingHorizontal: 20,
+    marginTop: 28,
+  },
+  timelineHeader: {
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  timelineDate: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 2,
+    marginBottom: 14,
+    textTransform: 'capitalize',
+  },
+  timelineContainer: {
     borderRadius: 18,
     overflow: 'hidden',
+    borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
+  timelineLine: {
+    position: 'absolute',
+    left: 23,
+    top: 16,
+    bottom: 16,
+    width: 2,
+    borderRadius: 1,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  timelineDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
+    zIndex: 1,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  timelineDotActive: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+  },
+  timelineDotEmpty: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+  },
+  timelineItemContent: {
+    flex: 1,
+  },
+  timelineTime: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  timelineMateria: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  timelineAula: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  timelineNowBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  timelineNowText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  timelineSeparator: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    marginHorizontal: 12,
+    marginVertical: 4,
+  },
+
+  // Tasks (inside timeline)
+  taskItemWrapper: {},
+  emptyTimeline: {
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 6,
+  },
+  emptyTimelineText: { fontSize: 15, fontWeight: '500' },
+  emptyTimelineHint: { fontSize: 13 },
+
+  // Task Input (integrated)
   taskInputRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    gap: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 0,
   },
   taskInputFields: {
     flex: 1,
   },
   taskInput: {
-    fontSize: 17,
-    paddingVertical: 8,
+    fontSize: 15,
+    paddingVertical: 6,
     paddingHorizontal: 0,
   },
   taskDescriptionInput: {
-    fontSize: 14,
-    paddingVertical: 4,
+    fontSize: 13,
+    paddingVertical: 2,
     paddingHorizontal: 0,
     marginTop: 2,
   },
   addTaskButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 4,
   },
-  tasksDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginLeft: 16,
-  },
-  taskItemWrapper: {},
-  emptyTasks: {
-    paddingVertical: 32,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyTasksText: { fontSize: 16, fontWeight: '500' },
-  emptyTasksHint: { fontSize: 13 },
-
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 6,
-  },
-  infoText: { fontSize: 13, fontWeight: '500' },
 
   // Modal
   modalContainer: { flex: 1 },

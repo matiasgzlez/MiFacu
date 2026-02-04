@@ -163,7 +163,7 @@ export const TasksSkeleton = ({ count = 3 }: { count?: number }) => {
 };
 
 /**
- * Skeleton completo para el Home
+ * Skeleton completo para el Home — Bento Grid + Timeline layout
  */
 export const HomeSkeleton = () => {
   const colorScheme = useColorScheme() ?? 'light';
@@ -171,34 +171,45 @@ export const HomeSkeleton = () => {
 
   return (
     <View style={styles.homeSkeletonContainer}>
-      {/* Próxima Clase Skeleton */}
-      <View style={{ paddingHorizontal: 20, marginBottom: 25 }}>
-        <NextClassSkeleton />
-      </View>
+      {/* Hero Card — full width */}
+      <View style={{ paddingHorizontal: 20, marginTop: 16 }}>
+        <View style={[styles.heroSkeleton, { backgroundColor: theme.separator + '40' }]}>
+          <Skeleton width={90} height={20} borderRadius={6} style={{ marginBottom: 12 }} />
+          <Skeleton width="80%" height={22} borderRadius={6} style={{ marginBottom: 14 }} />
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <Skeleton width={70} height={14} borderRadius={4} />
+            <Skeleton width={50} height={14} borderRadius={4} />
+          </View>
+        </View>
 
-      {/* Tareas Rápidas Section */}
-      <View style={styles.section}>
-        <Skeleton width={120} height={13} borderRadius={4} style={{ marginBottom: 12, marginLeft: 5 }} />
-        <TasksSkeleton count={2} />
-      </View>
-
-      {/* Acceso Rápido Section */}
-      <View style={styles.section}>
-        <Skeleton width={100} height={13} borderRadius={4} style={{ marginBottom: 12, marginLeft: 5 }} />
-        <View style={styles.cardsRow}>
-          <CardSkeleton />
-          <CardSkeleton />
+        {/* Bento Row 2: Shortcuts */}
+        <View style={styles.shortcutsSkeletonRow}>
+          {[...Array(5)].map((_, i) => (
+            <View key={i} style={styles.shortcutSkeletonItem}>
+              <Skeleton width={42} height={42} borderRadius={14} />
+              <Skeleton width={32} height={10} borderRadius={4} style={{ marginTop: 6 }} />
+            </View>
+          ))}
         </View>
       </View>
 
-      {/* Herramientas Section */}
+      {/* Timeline Section */}
       <View style={styles.section}>
-        <Skeleton width={110} height={13} borderRadius={4} style={{ marginBottom: 12, marginLeft: 5 }} />
-        <View style={[styles.tableContainer, { backgroundColor: theme.backgroundSecondary, borderColor: theme.separator }]}>
-          <TableRowSkeleton />
-          <TableRowSkeleton />
-          <TableRowSkeleton />
-          <TableRowSkeleton isLast />
+        <Skeleton width={60} height={18} borderRadius={4} style={{ marginBottom: 4, marginLeft: 5 }} />
+        <Skeleton width={180} height={12} borderRadius={4} style={{ marginBottom: 14, marginLeft: 5 }} />
+        <View style={[styles.timelineSkeleton, { backgroundColor: theme.backgroundSecondary, borderColor: theme.separator }]}>
+          {[...Array(2)].map((_, i) => (
+            <View key={i} style={styles.timelineItemSkeleton}>
+              <Skeleton width={10} height={10} borderRadius={5} style={{ marginRight: 12 }} />
+              <View style={{ flex: 1 }}>
+                <Skeleton width={50} height={11} borderRadius={4} style={{ marginBottom: 4 }} />
+                <Skeleton width="70%" height={16} borderRadius={4} style={{ marginBottom: 3 }} />
+                <Skeleton width={60} height={11} borderRadius={4} />
+              </View>
+            </View>
+          ))}
+          <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: theme.separator, marginHorizontal: 12, marginVertical: 6 }} />
+          <TaskSkeleton />
         </View>
       </View>
     </View>
@@ -254,5 +265,34 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
+  },
+
+  // Bento skeleton styles
+  heroSkeleton: {
+    borderRadius: 20,
+    padding: 16,
+    justifyContent: 'flex-end',
+    minHeight: 120,
+    marginBottom: 16,
+  },
+  shortcutsSkeletonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 28,
+  },
+  shortcutSkeletonItem: {
+    alignItems: 'center',
+  },
+  timelineSkeleton: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 1,
+    padding: 4,
+  },
+  timelineItemSkeleton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
   },
 });

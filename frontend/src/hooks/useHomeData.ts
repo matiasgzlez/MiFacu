@@ -20,6 +20,14 @@ interface MateriaUsuario {
   nombre?: string;
 }
 
+export interface ClaseHoy {
+  materia: string;
+  hora: string;
+  horaFin: string;
+  aula: string;
+  esActual: boolean;
+}
+
 interface UseHomeDataReturn {
   // States
   loading: boolean;
@@ -28,6 +36,8 @@ interface UseHomeDataReturn {
   stats: Stats;
   carreraProgreso: number;
   proximaClase: ProximaClase | null;
+  clasesHoy: ClaseHoy[];
+  subtituloContextual: string;
   privacyMode: boolean;
   // Actions
   loadData: () => Promise<void>;
@@ -56,6 +66,8 @@ export function useHomeData(): UseHomeDataReturn {
   const [stats, setStats] = useState<Stats>(INITIAL_STATS);
   const [carreraProgreso, setCarreraProgreso] = useState(0);
   const [proximaClase, setProximaClase] = useState<ProximaClase | null>(null);
+  const [clasesHoy, setClasesHoy] = useState<ClaseHoy[]>([]);
+  const [subtituloContextual, setSubtituloContextual] = useState('');
   const [privacyMode, setPrivacyMode] = useState(false);
 
   // Track if initial load has been done to avoid showing skeleton on subsequent focus
@@ -75,6 +87,42 @@ export function useHomeData(): UseHomeDataReturn {
     setPrivacyMode(newVal);
     await AsyncStorage.setItem('privacy_mode', String(newVal));
   }, [privacyMode]);
+
+  const calculateClasesHoy = useCallback((cursandoMaterias: MateriaUsuario[]): ClaseHoy[] => {
+    if (cursandoMaterias.length === 0) return [];
+
+    const diasSemana = ['DO', 'LU', 'MA', 'MI', 'JU', 'VI', 'SA'];
+    const hoy = new Date();
+    const diaActual = diasSemana[hoy.getDay()];
+    const horaActual = hoy.getHours();
+
+    const clases: ClaseHoy[] = [];
+
+    cursandoMaterias.forEach((m) => {
+      if (m.dia === diaActual && m.hora !== null && m.hora !== undefined) {
+        const horaMateria = typeof m.hora === 'number' ? m.hora : parseInt(String(m.hora));
+        const duracion = m.duracion || 2;
+        const horaMateriaFin = horaMateria + duracion;
+        const esActual = horaActual >= horaMateria && horaActual < horaMateriaFin;
+
+        clases.push({
+          materia: m.materia?.nombre || m.nombre || 'Materia',
+          hora: `${horaMateria}:00`,
+          horaFin: `${horaMateriaFin}:00`,
+          aula: m.aula || '-',
+          esActual,
+        });
+      }
+    });
+
+    clases.sort((a, b) => {
+      const horaA = parseInt(a.hora);
+      const horaB = parseInt(b.hora);
+      return horaA - horaB;
+    });
+
+    return clases;
+  }, []);
 
   const calculateProximaClase = useCallback((cursandoMaterias: MateriaUsuario[]): ProximaClase | null => {
     if (cursandoMaterias.length === 0) return null;
@@ -168,11 +216,26 @@ export function useHomeData(): UseHomeDataReturn {
           setCarreraProgreso(Math.round((aprobadas / totalPlan) * 100));
         }
 
-        // Calculate next class
+        // Calculate next class and today's classes
         const cursandoMaterias = userMaterias.filter(
           (m) => String(m.estado).toLowerCase().includes('cursad') && m.dia && m.hora !== null
         );
         setProximaClase(calculateProximaClase(cursandoMaterias));
+
+        const todayClasses = calculateClasesHoy(cursandoMaterias);
+        setClasesHoy(todayClasses);
+
+        // Subtítulo contextual
+        if (todayClasses.length > 0) {
+          const actual = todayClasses.find((c) => c.esActual);
+          if (actual) {
+            setSubtituloContextual(`En clase: ${actual.materia}`);
+          } else {
+            setSubtituloContextual(`${todayClasses.length} clase${todayClasses.length > 1 ? 's' : ''} hoy`);
+          }
+        } else {
+          setSubtituloContextual('Día libre');
+        }
       }
     } catch (error) {
       console.error('Error cargando progreso:', error);
@@ -180,7 +243,7 @@ export function useHomeData(): UseHomeDataReturn {
       setLoading(false);
       hasLoadedOnce.current = true;
     }
-  }, [authLoading, user, calculateProximaClase]);
+  }, [authLoading, user, calculateProximaClase, calculateClasesHoy]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -205,6 +268,8 @@ export function useHomeData(): UseHomeDataReturn {
     stats,
     carreraProgreso,
     proximaClase,
+    clasesHoy,
+    subtituloContextual,
     privacyMode,
     loadData,
     onRefresh,
