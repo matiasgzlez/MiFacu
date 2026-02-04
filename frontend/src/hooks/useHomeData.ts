@@ -64,7 +64,7 @@ export function useHomeData(): UseHomeDataReturn {
   const checkPrivacyMode = useCallback(async () => {
     try {
       const mode = await AsyncStorage.getItem('privacy_mode');
-      if (mode === 'true') setPrivacyMode(true);
+      setPrivacyMode(mode === 'true');
     } catch (e) {
       // Silently fail
     }

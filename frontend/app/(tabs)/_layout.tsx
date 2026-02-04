@@ -1,8 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, StyleSheet } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { Colors } from '../../src/constants/theme';
+import { Colors, mifacuNavy } from '../../src/constants/theme';
 import { useTheme } from '../../src/context/ThemeContext';
 import * as Haptics from 'expo-haptics';
 
@@ -16,25 +15,17 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.tabIconSelected,
-        tabBarInactiveTintColor: theme.tabIconDefault,
+        tabBarActiveTintColor: '#FFFFFF',
+        tabBarInactiveTintColor: isDark ? '#6B7280' : 'rgba(255,255,255,0.45)',
         tabBarStyle: {
           position: 'absolute',
           borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: theme.separator,
-          backgroundColor: Platform.OS === 'ios' ? 'transparent' : theme.backgroundSecondary,
+          borderTopColor: 'rgba(255,255,255,0.15)',
+          backgroundColor: isDark ? '#111827' : mifacuNavy,
           height: Platform.OS === 'ios' ? 85 : 60,
           paddingBottom: Platform.OS === 'ios' ? 30 : 8,
           paddingTop: 8,
         },
-        tabBarBackground: () =>
-          Platform.OS === 'ios' ? (
-            <BlurView
-              intensity={80}
-              tint={isDark ? 'dark' : 'light'}
-              style={StyleSheet.absoluteFill}
-            />
-          ) : null,
         tabBarLabelStyle: {
           fontSize: 10,
           fontWeight: '500',
