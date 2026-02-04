@@ -28,6 +28,7 @@ export const Colors = {
     green: '#10B981', // Emerald 500
     red: '#EF4444', // Red 500
     slate: '#64748B',
+    purple: '#8B5CF6', // Violet 500
   },
   dark: {
     text: '#FFFFFF',
@@ -44,6 +45,7 @@ export const Colors = {
     green: '#30D158',
     red: '#FF453A',
     slate: '#8E8E93',
+    purple: '#BF5AF2',
   },
 };
 

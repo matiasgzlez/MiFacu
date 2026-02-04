@@ -24,6 +24,7 @@ import { useAuth } from '../../src/context/AuthContext';
 import { DataRepository } from '../../src/services/dataRepository';
 import { supabase } from '../../src/config/supabase';
 import { CarreraModal } from '../../src/components/home';
+import { FeedbackModal } from '../../src/components/profile/FeedbackModal';
 import { mifacuNavy, mifacuGold } from '../../src/constants/theme';
 
 interface Stats {
@@ -41,6 +42,7 @@ export default function PerfilScreen() {
 
   const [privacyMode, setPrivacyMode] = useState(false);
   const [showCarreraModal, setShowCarreraModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [carrera, setCarrera] = useState('No seleccionada');
   const [stats, setStats] = useState<Stats>({ aprobadas: 0, regulares: 0, cursando: 0, totalPlan: 0 });
 
@@ -349,6 +351,29 @@ export default function PerfilScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* SUPPORT */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: theme.icon }]}>SOPORTE</Text>
+          <View style={[styles.optionsContainer, { backgroundColor: theme.backgroundSecondary }]}>
+            <TouchableOpacity
+              style={styles.optionRow}
+              onPress={() => setShowFeedbackModal(true)}
+              activeOpacity={0.6}
+            >
+              <View style={[styles.optionIcon, { backgroundColor: theme.purple }]}>
+                <Ionicons name="chatbox-ellipses" size={18} color="white" />
+              </View>
+              <View style={styles.optionContent}>
+                <Text style={[styles.optionLabel, { color: theme.text }]}>Enviar Comentarios</Text>
+                <Text style={[styles.optionHint, { color: theme.icon }]}>
+                  Sugerencias, errores o consultas
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={theme.separator} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* VERSION */}
         <Text style={[styles.versionText, { color: theme.icon }]}>miFACU v1.0.0</Text>
 
@@ -360,6 +385,14 @@ export default function PerfilScreen() {
         visible={showCarreraModal}
         onClose={() => setShowCarreraModal(false)}
         onSelect={handleSelectCarrera}
+        theme={theme}
+        isDarkMode={isDark}
+      />
+
+      {/* FEEDBACK MODAL */}
+      <FeedbackModal
+        visible={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
         theme={theme}
         isDarkMode={isDark}
       />

@@ -12,7 +12,7 @@ async function runMigration() {
 
     try {
         await client.connect();
-        const sqlPath = path.join(__dirname, '../migrations/20260131_multi_career_scaling.sql');
+        const sqlPath = path.join(__dirname, '../migrations/20260204_create_feedback_table.sql');
         const sql = fs.readFileSync(sqlPath, 'utf8');
 
         console.log("⏳ Ejecutando comandos SQL...");
