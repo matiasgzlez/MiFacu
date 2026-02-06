@@ -1,12 +1,17 @@
-# Ignorar carpetas del sistema de agentes (causan error EPERM en Windows)
+# Agent folders
 .agent/
 .agents/
 .gemini/
 .claude/
 .cursor/
+skills/
+.opencode/
+
+# Symlinks (Aggressive ignore)
+**/.agents/
+**/skills/
 
 # Ignorar todo el contenido fuera de frontend para evitar que EAS escanee de más
-backend/
 docker/
 .git/
 node_modules/
