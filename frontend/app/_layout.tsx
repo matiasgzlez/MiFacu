@@ -6,6 +6,7 @@ import '../src/utils/notifications';
 import { Stack, useRouter, usePathname } from "expo-router";
 import { AuthProvider, useAuth } from "../src/context/AuthContext";
 import { ThemeProvider, useTheme } from "../src/context/ThemeContext";
+import { PremiumProvider } from "../src/context/PremiumContext";
 import { View, ActivityIndicator, StatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Colors } from "../src/constants/theme";
@@ -83,6 +84,7 @@ function RootNavigator() {
         <Stack.Screen name="linea-de-tiempo" options={{ presentation: 'card' }} />
         <Stack.Screen name="selectMateriaFija" options={{ presentation: 'card' }} />
         <Stack.Screen name="temas-finales" options={{ presentation: 'card' }} />
+        <Stack.Screen name="subscription" options={{ presentation: 'modal' }} />
 
         {/* Legacy routes */}
         <Stack.Screen name="mis-materias" options={{ presentation: 'card' }} />
@@ -94,7 +96,9 @@ function RootNavigator() {
 function AppContent() {
   return (
     <AuthProvider>
-      <RootNavigator />
+      <PremiumProvider>
+        <RootNavigator />
+      </PremiumProvider>
     </AuthProvider>
   );
 }
