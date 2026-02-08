@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "mifacumobile",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.plaidlabs.mifacu",
@@ -54,13 +54,13 @@
         "expo-build-properties",
         {
           "ios": {
-            "newArchEnabled": false,
+            "newArchEnabled": true,
             "otherCPlusPlusFlags": [
               "-DFOLLY_CFG_NO_COROUTINES=1"
             ]
           },
           "android": {
-            "newArchEnabled": false
+            "newArchEnabled": true
           }
         }
       ],
