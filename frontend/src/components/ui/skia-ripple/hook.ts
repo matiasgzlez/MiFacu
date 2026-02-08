@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
 import { Gesture } from 'react-native-gesture-handler';
 import {
     useSharedValue,
@@ -23,28 +23,25 @@ export function useRipple({
     const time = useSharedValue(0);
     const isActive = useSharedValue(false);
 
-    const startAnimation = useCallback(() => {
-        'worklet';
-        time.value = 0;
-        time.value = withTiming(duration, { duration: duration * 1000 });
-    }, [duration, time]);
-
     const tap = useMemo(
         () =>
             Gesture.Tap()
                 .onStart((event) => {
+                    'worklet';
                     touchX.value = event.x;
                     touchY.value = event.y;
                     isActive.value = true;
-                    runOnJS(startAnimation)();
+                    time.value = 0;
+                    time.value = withTiming(duration, { duration: duration * 1000 });
                 })
                 .onEnd(() => {
+                    'worklet';
                     isActive.value = false;
                     if (onPress) {
                         runOnJS(onPress)();
                     }
                 }),
-        [touchX, touchY, isActive, startAnimation, onPress]
+        [touchX, touchY, isActive, time, duration, onPress]
     );
 
     const uniforms = useDerivedValue(() => ({
