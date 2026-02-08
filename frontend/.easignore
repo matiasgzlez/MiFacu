@@ -1,8 +1,12 @@
-# Ignorar carpetas del sistema de agentes (causan error EPERM en Windows)
+# Ignorar carpetas del sistema de AI/Agentes (EPERM en Windows)
 .agent/
 .agents/
 .gemini/
 .claude/
+.cursor/
+.opencode/
+.system_generated/
+.brain/
 
 # Ignorar carpetas de desarrollo y logs
 node_modules/
