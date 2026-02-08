@@ -17,6 +17,7 @@ import {
   Modal,
   ScrollView,
   KeyboardAvoidingView,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -42,6 +43,7 @@ import {
   StatsModal,
   CarreraModal,
 } from '../../src/components/home';
+import { RippleRect } from '../../src/components/ui/skia-ripple';
 
 // Types
 import type { ThemeColors } from '../../src/types';
@@ -186,7 +188,7 @@ export default function HomeScreen() {
 
   // Animations
   const scrollY = useRef(new Animated.Value(0)).current;
-  const scrollViewRef = useRef<Animated.ScrollView>(null);
+  const scrollViewRef = useRef<any>(null);
   const taskInputRef = useRef<TextInput>(null);
 
   const headerOpacity = scrollY.interpolate({
@@ -554,15 +556,13 @@ export default function HomeScreen() {
             {/* ═══ BENTO GRID ═══ */}
             <View style={styles.bentoSection}>
               {/* Hero Card — Próxima Clase */}
-              <Pressable
+              <RippleRect
+                width={Dimensions.get('window').width - 40}
+                height={120}
+                borderRadius={20}
+                color={isDarkMode ? 'rgba(10,22,40,0.9)' : mifacuNavy}
                 onPress={() => router.push('/horarios')}
-                style={({ pressed }) => [
-                  styles.heroCard,
-                  {
-                    backgroundColor: isDarkMode ? 'rgba(10,22,40,0.9)' : mifacuNavy,
-                    opacity: pressed ? 0.9 : 1,
-                  },
-                ]}
+                style={styles.heroCard}
               >
                 {isDiaLibre ? (
                   <>
@@ -600,7 +600,7 @@ export default function HomeScreen() {
                     </View>
                   </>
                 )}
-              </Pressable>
+              </RippleRect>
 
               {/* Row 2: Shortcuts horizontal */}
               <View style={styles.shortcutsRow}>

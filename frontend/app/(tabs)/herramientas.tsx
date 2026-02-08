@@ -10,12 +10,14 @@ import {
   TouchableOpacity,
   Animated,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../src/constants/theme';
 import { useTheme } from '../../src/context/ThemeContext';
+import { RippleRect } from '../../src/components/ui/skia-ripple';
 
 interface ToolItem {
   id: string;
@@ -121,13 +123,15 @@ export default function HerramientasScreen() {
           <View style={[styles.toolsContainer, { backgroundColor: theme.backgroundSecondary }]}>
             {TOOLS.map((tool, index) => (
               <AnimatedItem key={tool.id} index={index}>
-                <TouchableOpacity
-                  style={[
+                <RippleRect
+                  width={Dimensions.get('window').width - 40}
+                  height={70}
+                  color={theme.backgroundSecondary}
+                  onPress={() => handlePress(tool.route)}
+                  style={StyleSheet.flatten([
                     styles.toolRow,
                     index < TOOLS.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: theme.separator },
-                  ]}
-                  onPress={() => handlePress(tool.route)}
-                  activeOpacity={0.6}
+                  ])}
                 >
                   <View style={[styles.toolIconContainer, { backgroundColor: getColor(tool.color) + '15' }]}>
                     <Ionicons name={tool.icon} size={22} color={getColor(tool.color)} />
@@ -137,7 +141,7 @@ export default function HerramientasScreen() {
                     <Text style={[styles.toolSubtitle, { color: theme.icon }]}>{tool.subtitle}</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color={theme.icon} />
-                </TouchableOpacity>
+                </RippleRect>
               </AnimatedItem>
             ))}
           </View>
