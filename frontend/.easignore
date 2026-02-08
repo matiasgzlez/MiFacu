@@ -1,4 +1,4 @@
-# Ignorar carpetas del sistema de AI/Agentes (EPERM en Windows)
+# 🤖 AI & Agent System Folders (CRITICAL: Skip these to avoid Windows EPERM symlink errors)
 .agent/
 .agents/
 .gemini/
@@ -7,8 +7,13 @@
 .opencode/
 .system_generated/
 .brain/
+.config/
+skills/
+**/.*agent*
+**/.*gemini*
+**/.*opencode*
 
-# Ignorar carpetas de desarrollo y logs
+# 📦 Dependencies & Build Outputs
 node_modules/
 .expo/
 dist/
@@ -16,9 +21,19 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# Ignorar archivos locales
+# 📁 Level up Git/Configs
+.git/
+../.agent/
+../.agents/
+../.gemini/
+../.claude/
+../.cursor/
+../.opencode/
+../.system_generated/
+../.brain/
+../backend/
+../docker/
+
+# 🔐 Secrets & Logs
 .env*.local
 *.tsbuildinfo
-
-# Ignorar carpetas de git de niveles superiores si existieran
-.git/
