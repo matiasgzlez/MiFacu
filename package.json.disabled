@@ -11,7 +11,7 @@
         "start": "npm run frontend",
         "frontend": "cd frontend && npm start",
         "backend": "cd backend && npm start",
-        "postinstall": "npm install --prefix frontend && npm install --prefix backend"
+        "postinstall": "npm install --prefix frontend && (test -d backend && npm install --prefix backend || true)"
     },
     "devDependencies": {
         "semver": "^7.7.3"

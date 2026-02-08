@@ -13,20 +13,21 @@ import {
   Alert,
   Animated,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Colors } from '../../src/constants/theme';
+import { CarreraModal } from '../../src/components/home';
+import { FeedbackModal } from '../../src/components/profile/FeedbackModal';
+import { Colors, mifacuNavy, mifacuGold } from '../../src/constants/theme';
 import { useTheme } from '../../src/context/ThemeContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { DataRepository } from '../../src/services/dataRepository';
 import { supabase } from '../../src/config/supabase';
-import { CarreraModal } from '../../src/components/home';
-import { FeedbackModal } from '../../src/components/profile/FeedbackModal';
-import { mifacuNavy, mifacuGold } from '../../src/constants/theme';
 import { usePremium } from '../../src/context/PremiumContext';
+import { RippleRect } from '../../src/components/ui/skia-ripple';
 
 interface Stats {
   aprobadas: number;
@@ -200,7 +201,14 @@ export default function PerfilScreen() {
 
         {/* PROFILE CARD */}
         <View style={styles.section}>
-          <View style={[styles.profileCard, { backgroundColor: theme.backgroundSecondary }]}>
+          <RippleRect
+            width={Dimensions.get('window').width - 40}
+            height={200}
+            borderRadius={20}
+            color={theme.backgroundSecondary}
+            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+            style={styles.profileCard}
+          >
             <View style={[styles.avatarRing, { borderColor: theme.tint }]}>
               <Image
                 source={{ uri: user?.user_metadata?.avatar_url || 'https://i.pravatar.cc/100?img=33' }}
@@ -213,7 +221,7 @@ export default function PerfilScreen() {
             <Text style={[styles.profileEmail, { color: theme.icon }]}>
               {user?.email || 'Sincronizado'}
             </Text>
-          </View>
+          </RippleRect>
         </View>
 
         {/* STATS */}
