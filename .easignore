@@ -1,9 +1,9 @@
-# Ignorar carpetas del sistema de agentes (causan error EPERM en Windows)
-.agent/
-.agents/
-.gemini/
 .claude/
 .cursor/
+.opencode/
+.system_generated/
+.brain/
+.agents/
 
 # Ignorar todo el contenido fuera de frontend para evitar que EAS escanee de más
 backend/
