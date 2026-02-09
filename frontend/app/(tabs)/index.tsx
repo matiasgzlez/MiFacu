@@ -569,7 +569,7 @@ export default function HomeScreen() {
                 borderRadius={20}
                 color={isDarkMode ? 'rgba(10,22,40,0.9)' : mifacuNavy}
                 onPress={() => router.push('/horarios')}
-                style={styles.heroCard}
+                style={styles.heroCardContent}
               >
                 {isDiaLibre ? (
                   <>
@@ -1049,16 +1049,10 @@ const styles = StyleSheet.create({
   },
 
   // Hero Card — Próxima Clase (full width)
-  heroCard: {
-    borderRadius: 20,
+  heroCardContent: {
     padding: 16,
     justifyContent: 'space-between',
-    minHeight: 120,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    flex: 1,
   },
   heroIconRow: {
     marginBottom: 12,

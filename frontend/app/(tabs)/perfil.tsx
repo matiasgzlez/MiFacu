@@ -207,7 +207,7 @@ export default function PerfilScreen() {
             borderRadius={20}
             color={theme.backgroundSecondary}
             onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            style={styles.profileCard}
+            style={styles.profileCardContent}
           >
             <View style={[styles.avatarRing, { borderColor: theme.tint }]}>
               <Image
@@ -529,15 +529,11 @@ const styles = StyleSheet.create({
   },
 
   // Profile card
-  profileCard: {
-    borderRadius: 20,
+  profileCardContent: {
     padding: 24,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
+    justifyContent: 'center',
+    flex: 1,
   },
   avatarRing: { padding: 3, borderRadius: 50, borderWidth: 3 },
   avatar: { width: 80, height: 80, borderRadius: 40 },

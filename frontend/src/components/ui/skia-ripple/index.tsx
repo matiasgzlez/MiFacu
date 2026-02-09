@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useCallback } from 'react';
 import {
     Canvas,
     RoundedRect,
@@ -12,8 +12,7 @@ import {
     useImage,
 } from '@shopify/react-native-skia';
 import type { SkPath } from '@shopify/react-native-skia';
-import { StyleSheet, View } from 'react-native';
-import { GestureDetector } from 'react-native-gesture-handler';
+import { StyleSheet, View, Pressable, GestureResponderEvent } from 'react-native';
 import { RIPPLE_SHADER_SOURCE } from './conf';
 import { useRipple } from './hook';
 import type { IRippleSkiaEffect, IRippleImage, IRippleRect } from './types';
@@ -21,7 +20,7 @@ import type { IRippleSkiaEffect, IRippleImage, IRippleRect } from './types';
 const RIPPLE_SHADER = Skia.RuntimeEffect.Make(RIPPLE_SHADER_SOURCE);
 
 /**
- * SkiaRippleEffect - Generic wrapper for any content
+ * SkiaRippleEffect - Generic wrapper for any Skia content
  */
 export const SkiaRippleEffect = memo<IRippleSkiaEffect>(
     ({
@@ -37,7 +36,7 @@ export const SkiaRippleEffect = memo<IRippleSkiaEffect>(
         style,
         onPress,
     }) => {
-        const { uniforms, tap } = useRipple({
+        const { uniforms, triggerRipple } = useRipple({
             amplitude,
             decay,
             duration,
@@ -45,8 +44,11 @@ export const SkiaRippleEffect = memo<IRippleSkiaEffect>(
             height,
             speed,
             width,
-            onPress,
         });
+
+        const handlePressIn = useCallback((e: GestureResponderEvent) => {
+            triggerRipple(e.nativeEvent.locationX, e.nativeEvent.locationY);
+        }, [triggerRipple]);
 
         const clipPath = useMemo<SkPath | null>(() => {
             if (borderRadius <= 0) return null;
@@ -57,31 +59,31 @@ export const SkiaRippleEffect = memo<IRippleSkiaEffect>(
 
         if (!RIPPLE_SHADER) {
             return (
-                <GestureDetector gesture={tap}>
-                    <View style={[{ width, height }, style]}>
-                        <Canvas style={{ width, height }}>{children}</Canvas>
-                    </View>
-                </GestureDetector>
+                <Pressable onPressIn={handlePressIn} onPress={onPress} style={[{ width, height }, style]}>
+                    <Canvas style={{ width, height }}>{children}</Canvas>
+                </Pressable>
             );
         }
 
         return (
-            <GestureDetector gesture={tap}>
-                <View style={[{ width, height, borderRadius, overflow: 'hidden' }, style]}>
-                    <Canvas style={{ width, height }}>
-                        <Group
-                            clip={clipPath ?? undefined}
-                            layer={
-                                <Paint>
-                                    <RuntimeShader source={RIPPLE_SHADER} uniforms={uniforms} />
-                                </Paint>
-                            }
-                        >
-                            {children}
-                        </Group>
-                    </Canvas>
-                </View>
-            </GestureDetector>
+            <Pressable
+                onPressIn={handlePressIn}
+                onPress={onPress}
+                style={[{ width, height, borderRadius, overflow: 'hidden' }, style]}
+            >
+                <Canvas style={{ width, height }}>
+                    <Group
+                        clip={clipPath ?? undefined}
+                        layer={
+                            <Paint>
+                                <RuntimeShader source={RIPPLE_SHADER} uniforms={uniforms} />
+                            </Paint>
+                        }
+                    >
+                        {children}
+                    </Group>
+                </Canvas>
+            </Pressable>
         );
     }
 );
@@ -105,7 +107,7 @@ export const RippleImage = memo<IRippleImage>(
         onPress,
     }) => {
         const image = useImage(typeof source === 'string' ? source : null);
-        const { uniforms, tap } = useRipple({
+        const { uniforms, triggerRipple } = useRipple({
             amplitude,
             decay,
             duration,
@@ -113,8 +115,11 @@ export const RippleImage = memo<IRippleImage>(
             height,
             speed,
             width,
-            onPress,
         });
+
+        const handlePressIn = useCallback((e: GestureResponderEvent) => {
+            triggerRipple(e.nativeEvent.locationX, e.nativeEvent.locationY);
+        }, [triggerRipple]);
 
         const clipPath = useMemo<SkPath | null>(() => {
             if (borderRadius <= 0) return null;
@@ -125,43 +130,50 @@ export const RippleImage = memo<IRippleImage>(
 
         if (!RIPPLE_SHADER) {
             return (
-                <GestureDetector gesture={tap}>
-                    <View style={[{ width, height, borderRadius, overflow: 'hidden' }, style]}>
-                        <Canvas style={{ width, height }}>
-                            {image && (
-                                <SkiaImage image={image} x={0} y={0} width={width} height={height} fit={fit} />
-                            )}
-                        </Canvas>
-                    </View>
-                </GestureDetector>
+                <Pressable
+                    onPressIn={handlePressIn}
+                    onPress={onPress}
+                    style={[{ width, height, borderRadius, overflow: 'hidden' }, style]}
+                >
+                    <Canvas style={{ width, height }}>
+                        {image && (
+                            <SkiaImage image={image} x={0} y={0} width={width} height={height} fit={fit} />
+                        )}
+                    </Canvas>
+                </Pressable>
             );
         }
 
         return (
-            <GestureDetector gesture={tap}>
-                <View style={[{ width, height, borderRadius, overflow: 'hidden' }, style]}>
-                    <Canvas style={{ width, height }}>
-                        <Group
-                            clip={clipPath ?? undefined}
-                            layer={
-                                <Paint>
-                                    <RuntimeShader source={RIPPLE_SHADER} uniforms={uniforms} />
-                                </Paint>
-                            }
-                        >
-                            {image && (
-                                <SkiaImage image={image} x={0} y={0} width={width} height={height} fit={fit} />
-                            )}
-                        </Group>
-                    </Canvas>
-                </View>
-            </GestureDetector>
+            <Pressable
+                onPressIn={handlePressIn}
+                onPress={onPress}
+                style={[{ width, height, borderRadius, overflow: 'hidden' }, style]}
+            >
+                <Canvas style={{ width, height }}>
+                    <Group
+                        clip={clipPath ?? undefined}
+                        layer={
+                            <Paint>
+                                <RuntimeShader source={RIPPLE_SHADER} uniforms={uniforms} />
+                            </Paint>
+                        }
+                    >
+                        {image && (
+                            <SkiaImage image={image} x={0} y={0} width={width} height={height} fit={fit} />
+                        )}
+                    </Group>
+                </Canvas>
+            </Pressable>
         );
     }
 );
 
 /**
- * RippleRect - Rectangle/Card with ripple effect and children
+ * RippleRect - Rectangle/Card with ripple effect and React Native children
+ *
+ * `style` is applied to the children overlay (for padding, alignment, etc.)
+ * The outer container handles sizing, borderRadius, and overflow clipping.
  */
 export const RippleRect = memo<IRippleRect>(
     ({
@@ -178,7 +190,7 @@ export const RippleRect = memo<IRippleRect>(
         children,
         onPress,
     }) => {
-        const { uniforms, tap } = useRipple({
+        const { uniforms, triggerRipple } = useRipple({
             amplitude,
             decay,
             duration,
@@ -186,53 +198,56 @@ export const RippleRect = memo<IRippleRect>(
             height,
             speed,
             width,
-            onPress,
         });
+
+        const handlePressIn = useCallback((e: GestureResponderEvent) => {
+            triggerRipple(e.nativeEvent.locationX, e.nativeEvent.locationY);
+        }, [triggerRipple]);
 
         if (!RIPPLE_SHADER) {
             return (
-                <GestureDetector gesture={tap}>
-                    <View style={[{ width, height, borderRadius, overflow: 'hidden' }, style]}>
-                        <Canvas style={{ width, height }}>
-                            <RoundedRect x={0} y={0} width={width} height={height} r={borderRadius} color={color} />
-                        </Canvas>
-                        {children && (
-                            <View style={[StyleSheet.absoluteFill, styles.container]}>{children}</View>
-                        )}
-                    </View>
-                </GestureDetector>
+                <Pressable
+                    onPressIn={handlePressIn}
+                    onPress={onPress}
+                    style={{ width, height, borderRadius, overflow: 'hidden' }}
+                >
+                    <Canvas style={StyleSheet.absoluteFill}>
+                        <RoundedRect x={0} y={0} width={width} height={height} r={borderRadius} color={color} />
+                    </Canvas>
+                    {children != null && (
+                        <View style={[StyleSheet.absoluteFill, style]} pointerEvents="box-none">
+                            {children}
+                        </View>
+                    )}
+                </Pressable>
             );
         }
 
         return (
-            <GestureDetector gesture={tap}>
-                <View style={[{ width, height, borderRadius, overflow: 'hidden' }, style]}>
-                    <Canvas style={{ width, height }}>
-                        <Group
-                            layer={
-                                <Paint>
-                                    <RuntimeShader source={RIPPLE_SHADER} uniforms={uniforms} />
-                                </Paint>
-                            }
-                        >
-                            <RoundedRect x={0} y={0} width={width} height={height} r={borderRadius} color={color} />
-                        </Group>
-                    </Canvas>
-                    {children && (
-                        <View style={[StyleSheet.absoluteFill, styles.container]}>{children}</View>
-                    )}
-                </View>
-            </GestureDetector>
+            <Pressable
+                onPressIn={handlePressIn}
+                onPress={onPress}
+                style={{ width, height, borderRadius, overflow: 'hidden' }}
+            >
+                <Canvas style={StyleSheet.absoluteFill}>
+                    <Group
+                        layer={
+                            <Paint>
+                                <RuntimeShader source={RIPPLE_SHADER} uniforms={uniforms} />
+                            </Paint>
+                        }
+                    >
+                        <RoundedRect x={0} y={0} width={width} height={height} r={borderRadius} color={color} />
+                    </Group>
+                </Canvas>
+                {children != null && (
+                    <View style={[StyleSheet.absoluteFill, style]} pointerEvents="box-none">
+                        {children}
+                    </View>
+                )}
+            </Pressable>
         );
     }
 );
-
-const styles = StyleSheet.create({
-    container: {
-        alignItems: 'center',
-        justifyContent: 'center',
-        pointerEvents: 'none',
-    },
-});
 
 export { SkiaRippleEffect as default };

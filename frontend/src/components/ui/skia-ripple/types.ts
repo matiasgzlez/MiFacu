@@ -36,5 +36,4 @@ export interface UseRippleParams {
     decay: number;
     speed: number;
     duration: number;
-    onPress?: () => void;
 }
