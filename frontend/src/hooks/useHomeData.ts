@@ -6,7 +6,7 @@ import { materiasApi } from '../services/api';
 import { DataRepository } from '../services/dataRepository';
 import type { Recordatorio, ProximaClase, Stats } from '../types';
 
-interface MateriaUsuario {
+export interface MateriaUsuario {
   id: number;
   estado: string;
   dia?: string;
@@ -37,6 +37,7 @@ interface UseHomeDataReturn {
   carreraProgreso: number;
   proximaClase: ProximaClase | null;
   clasesHoy: ClaseHoy[];
+  cursandoMaterias: MateriaUsuario[];
   subtituloContextual: string;
   privacyMode: boolean;
   // Actions
@@ -67,6 +68,7 @@ export function useHomeData(): UseHomeDataReturn {
   const [carreraProgreso, setCarreraProgreso] = useState(0);
   const [proximaClase, setProximaClase] = useState<ProximaClase | null>(null);
   const [clasesHoy, setClasesHoy] = useState<ClaseHoy[]>([]);
+  const [cursandoMaterias, setCursandoMaterias] = useState<MateriaUsuario[]>([]);
   const [subtituloContextual, setSubtituloContextual] = useState('');
   const [privacyMode, setPrivacyMode] = useState(false);
 
@@ -205,9 +207,9 @@ export function useHomeData(): UseHomeDataReturn {
 
         const totalPlan = (userMaterias?.length || 0) + (availableMaterias?.length || 0);
 
-        const aprobadas = userMaterias?.filter((m) => m.estado === 'aprobado').length || 0;
-        const cursando = userMaterias?.filter((m) => m.estado === 'cursado').length || 0;
-        const regulares = userMaterias?.filter((m) => m.estado === 'regular').length || 0;
+        const aprobadas = userMaterias?.filter((m: any) => m.estado === 'aprobado').length || 0;
+        const cursando = userMaterias?.filter((m: any) => m.estado === 'cursado').length || 0;
+        const regulares = userMaterias?.filter((m: any) => m.estado === 'regular').length || 0;
         const noCursadas = availableMaterias?.length || 0;
 
         setStats({ aprobadas, cursando, regulares, totalPlan, noCursadas });
@@ -217,12 +219,13 @@ export function useHomeData(): UseHomeDataReturn {
         }
 
         // Calculate next class and today's classes
-        const cursandoMaterias = userMaterias.filter(
-          (m) => String(m.estado).toLowerCase().includes('cursad') && m.dia && m.hora !== null
+        const materiasCursando = userMaterias.filter(
+          (m: any) => String(m.estado).toLowerCase().includes('cursad') && m.dia && m.hora !== null
         );
-        setProximaClase(calculateProximaClase(cursandoMaterias));
+        setCursandoMaterias(materiasCursando);
+        setProximaClase(calculateProximaClase(materiasCursando));
 
-        const todayClasses = calculateClasesHoy(cursandoMaterias);
+        const todayClasses = calculateClasesHoy(materiasCursando);
         setClasesHoy(todayClasses);
 
         // Subtítulo contextual
@@ -269,6 +272,7 @@ export function useHomeData(): UseHomeDataReturn {
     carreraProgreso,
     proximaClase,
     clasesHoy,
+    cursandoMaterias,
     subtituloContextual,
     privacyMode,
     loadData,

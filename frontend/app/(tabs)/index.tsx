@@ -46,10 +46,13 @@ import {
 } from '../../src/components/home';
 import { RippleRect } from '../../src/components/ui/skia-ripple';
 import { StaggeredText } from '../../src/components/ui/animated-text';
+import { CinematicCarousel } from '../../src/components/ui/cinematic-carousel';
 
 // Types
 import type { ThemeColors } from '../../src/types';
+import type { MateriaUsuario } from '../../src/hooks/useHomeData';
 
+const SCREEN_WIDTH = Dimensions.get('window').width;
 const QUICK_ACCESS_KEY = '@mifacu_quick_access';
 
 // Available quick access options with SF Symbol-like icons
@@ -140,6 +143,7 @@ export default function HomeScreen() {
     carreraProgreso,
     proximaClase,
     clasesHoy,
+    cursandoMaterias,
     subtituloContextual,
     privacyMode,
     onRefresh,
@@ -409,6 +413,53 @@ export default function HomeScreen() {
   // Hero card: free day or has class
   const isDiaLibre = !proximaClase || proximaClase.tipo === 'Horarios';
 
+  // Carousel constants
+  const CAROUSEL_ITEM_WIDTH = Math.round(SCREEN_WIDTH * 0.75);
+  const CAROUSEL_ITEM_HEIGHT = 160;
+
+  const DAY_LABELS: Record<string, string> = {
+    LU: 'LUNES', MA: 'MARTES', MI: 'MIÉRCOLES',
+    JU: 'JUEVES', VI: 'VIERNES', SA: 'SÁBADO', DO: 'DOMINGO',
+  };
+
+  const renderCursandoItem = useCallback((item: MateriaUsuario) => {
+    const horaNum = typeof item.hora === 'number' ? item.hora : parseInt(String(item.hora));
+    const duracion = item.duracion || 2;
+    const horaFin = horaNum + duracion;
+    const horaStr = `${horaNum}:00`;
+    const horaFinStr = `${horaFin}:00`;
+    const nombre = item.materia?.nombre || item.nombre || 'Materia';
+    const dia = DAY_LABELS[item.dia || ''] || item.dia || '';
+    const aula = item.aula || '-';
+
+    return (
+      <View style={[
+        styles.carouselCard,
+        { backgroundColor: isDarkMode ? 'rgba(10,22,40,0.95)' : mifacuNavy },
+      ]}>
+        <View style={styles.carouselCardHeader}>
+          <Ionicons name="book" size={16} color="rgba(255,255,255,0.7)" />
+          <Text style={styles.carouselCardDay}>{dia}</Text>
+        </View>
+        <Text style={styles.carouselCardMateria} numberOfLines={2}>
+          {nombre}
+        </Text>
+        <View style={styles.carouselCardFooter}>
+          <View style={styles.carouselCardInfo}>
+            <Ionicons name="time-outline" size={14} color="rgba(255,255,255,0.6)" />
+            <Text style={styles.carouselCardInfoText}>{horaStr} - {horaFinStr}</Text>
+          </View>
+          {aula !== '-' && (
+            <View style={styles.carouselCardInfo}>
+              <Ionicons name="location-outline" size={14} color="rgba(255,255,255,0.6)" />
+              <Text style={styles.carouselCardInfoText}>{aula}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  }, [isDarkMode]);
+
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor }]}
@@ -616,6 +667,22 @@ export default function HomeScreen() {
                   </>
                 )}
               </RippleRect>
+
+              {/* Carousel — Materias Cursando */}
+              {cursandoMaterias.length > 0 && (
+                <View>
+                  <Text style={[styles.carouselSectionTitle, { color: theme.text }]}>
+                    Cursando
+                  </Text>
+                  <CinematicCarousel
+                    data={cursandoMaterias}
+                    renderItem={renderCursandoItem}
+                    itemWidth={CAROUSEL_ITEM_WIDTH}
+                    itemHeight={CAROUSEL_ITEM_HEIGHT}
+                    style={styles.carouselContainer}
+                  />
+                </View>
+              )}
 
               {/* Row 2: Shortcuts horizontal */}
               <View style={styles.shortcutsRow}>
@@ -1403,5 +1470,59 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
     marginBottom: 40,
+  },
+
+  // ═══ CINEMATIC CAROUSEL ═══
+  carouselSectionTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    marginBottom: 10,
+  },
+  carouselContainer: {
+    marginHorizontal: -20,
+  },
+  carouselCard: {
+    flex: 1,
+    borderRadius: 20,
+    padding: 18,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+  },
+  carouselCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  carouselCardDay: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  carouselCardMateria: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    flex: 1,
+  },
+  carouselCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginTop: 10,
+  },
+  carouselCardInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  carouselCardInfoText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+    fontWeight: '500',
   },
 });

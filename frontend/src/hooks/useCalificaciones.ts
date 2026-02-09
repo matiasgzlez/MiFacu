@@ -47,7 +47,7 @@ export function useCalificaciones(materiaIdFilter?: number): UseCalificacionesRe
     const fetchCalificaciones = useCallback(async (materiaId?: number) => {
         try {
             setError(null);
-            const data = await calificacionesApi.getAll(materiaId ?? materiaIdFilter);
+            const data = await (calificacionesApi as any).getAll(materiaId ?? materiaIdFilter);
             setCalificaciones(data);
         } catch (e: any) {
             console.error('Error cargando calificaciones:', e);

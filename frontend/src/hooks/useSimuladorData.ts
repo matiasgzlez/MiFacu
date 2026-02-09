@@ -394,7 +394,7 @@ export function useSimuladorData(): UseSimuladorDataReturn {
           if (status === 404) {
             // La materia no esta agregada al usuario, agregarla
             try {
-              await materiasApi.addMateriaToUsuario(user.id, materiaId, estadoApi);
+              await (materiasApi as any).addMateriaToUsuario(user.id, materiaId, estadoApi);
             } catch (addError: any) {
               // Si da 400 significa que ya existe, intentar actualizar de nuevo
               if (addError?.response?.status === 400) {

@@ -72,7 +72,7 @@ export const DataRepository = {
     },
 
     // --- LINKS (REPOSITORIO) ---
-    async getLinks() {
+    async getLinks(_isGuest?: boolean) {
         try {
             return await linksApi.getLinks();
         } catch (error) {
@@ -81,15 +81,15 @@ export const DataRepository = {
         }
     },
 
-    async createLink(data: any) {
+    async createLink(_isGuest: boolean, data: any) {
         return await linksApi.createLink(data);
     },
 
-    async updateLink(id: number, data: any) {
+    async updateLink(_isGuest: boolean, id: number, data: any) {
         return await linksApi.updateLink(id, data);
     },
 
-    async deleteLink(id: number) {
+    async deleteLink(_isGuest: boolean, id: number) {
         await linksApi.deleteLink(id);
     },
 
@@ -130,9 +130,9 @@ export const DataRepository = {
         }
     },
 
-    async addMateriaToUsuario(userId: string, materiaId: number, estado: string, schedule: any) {
+    async addMateriaToUsuario(userId: string, materiaId: number, estado: string, schedule?: any) {
         try {
-            return await materiasApi.addMateriaToUsuario(userId, materiaId, estado, schedule);
+            return await (materiasApi as any).addMateriaToUsuario(userId, materiaId, estado, schedule);
         } catch (error) {
             console.error("Error adding materia to user:", error);
             throw error;

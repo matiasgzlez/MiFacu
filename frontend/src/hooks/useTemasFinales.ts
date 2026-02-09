@@ -34,7 +34,7 @@ export function useTemasFinales(materiaIdFilter?: number): UseTemasFinalesReturn
     const fetchTemas = useCallback(async (materiaId?: number) => {
         try {
             setError(null);
-            const data = await temasFinalesApi.getAll(materiaId ?? materiaIdFilter);
+            const data = await (temasFinalesApi as any).getAll(materiaId ?? materiaIdFilter);
             setTemas(data);
         } catch (e: any) {
             const status = e?.response?.status;
