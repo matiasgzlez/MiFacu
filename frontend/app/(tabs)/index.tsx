@@ -142,7 +142,6 @@ export default function HomeScreen() {
     stats,
     carreraProgreso,
     proximaClase,
-    clasesHoy,
     cursandoMaterias,
     subtituloContextual,
     privacyMode,
@@ -401,15 +400,6 @@ export default function HomeScreen() {
     ? ['#0A1628', '#050D1A'] as const
     : ['#1E3A8A', '#0F1D45'] as const;
 
-  // Timeline date
-  const today = new Date();
-  const diasNombres = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  const mesesNombres = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  const timelineDate = `Hoy, ${diasNombres[today.getDay()]} ${today.getDate()} de ${mesesNombres[today.getMonth()]}`;
-
-  // Timeline line color
-  const timelineColor = isDarkMode ? theme.tint : mifacuNavy;
-
   // Hero card: free day or has class
   const isDiaLibre = !proximaClase || proximaClase.tipo === 'Horarios';
 
@@ -433,10 +423,14 @@ export default function HomeScreen() {
     const aula = item.aula || '-';
 
     return (
-      <View style={[
-        styles.carouselCard,
-        { backgroundColor: isDarkMode ? 'rgba(10,22,40,0.95)' : mifacuNavy },
-      ]}>
+      <LinearGradient
+        colors={isDarkMode
+          ? ['#1a1a2e', '#16213e', '#0f3460'] as const
+          : ['#4338CA', '#6366F1', '#818CF8'] as const}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.carouselCard}
+      >
         <View style={styles.carouselCardHeader}>
           <Ionicons name="book" size={16} color="rgba(255,255,255,0.7)" />
           <Text style={styles.carouselCardDay}>{dia}</Text>
@@ -456,7 +450,7 @@ export default function HomeScreen() {
             </View>
           )}
         </View>
-      </View>
+      </LinearGradient>
     );
   }, [isDarkMode]);
 
@@ -704,76 +698,6 @@ export default function HomeScreen() {
                   </View>
                   <Text style={[styles.shortcutLabel, { color: theme.icon }]}>Editar</Text>
                 </Pressable>
-              </View>
-            </View>
-
-            {/* ═══ TU DÍA — TIMELINE ═══ */}
-            <View style={styles.timelineSection}>
-              <Text style={[styles.timelineHeader, { color: theme.text }]}>Tu día</Text>
-              <Text style={[styles.timelineDate, { color: theme.icon }]}>{timelineDate}</Text>
-
-              <View style={[styles.timelineContainer, { backgroundColor: cardColor, borderColor: isDarkMode ? '#38383A' : '#E2E8F0' }]}>
-                {/* Timeline Line */}
-                <View style={[styles.timelineLine, { backgroundColor: isDarkMode ? theme.tint + '30' : mifacuNavy + '15' }]} />
-
-                {/* Classes */}
-                {clasesHoy.length > 0 && clasesHoy.map((clase, index) => (
-                  <View
-                    key={`clase-${index}`}
-                    style={[
-                      styles.timelineItem,
-                      clase.esActual && {
-                        backgroundColor: isDarkMode ? theme.tint + '12' : mifacuNavy + '08',
-                        borderRadius: 12,
-                        marginHorizontal: -4,
-                        paddingHorizontal: 4 + 12,
-                      },
-                      index === 0 && { paddingTop: 16 },
-                    ]}
-                  >
-                    <View style={[
-                      styles.timelineDot,
-                      {
-                        backgroundColor: clase.esActual
-                          ? (isDarkMode ? theme.tint : mifacuNavy)
-                          : timelineColor,
-                        borderColor: cardColor,
-                      },
-                      clase.esActual && styles.timelineDotActive,
-                    ]} />
-                    <View style={styles.timelineItemContent}>
-                      <Text style={[styles.timelineTime, { color: clase.esActual ? (isDarkMode ? theme.tint : mifacuNavy) : theme.icon }]}>
-                        {clase.hora}
-                      </Text>
-                      <Text style={[styles.timelineMateria, { color: theme.text }]} numberOfLines={1}>
-                        {clase.materia}
-                      </Text>
-                      {clase.aula !== '-' && (
-                        <Text style={[styles.timelineAula, { color: theme.icon }]}>
-                          {clase.aula}
-                        </Text>
-                      )}
-                    </View>
-                    {clase.esActual && (
-                      <View style={[styles.timelineNowBadge, { backgroundColor: isDarkMode ? theme.tint : mifacuNavy }]}>
-                        <Text style={styles.timelineNowText}>Ahora</Text>
-                      </View>
-                    )}
-                  </View>
-                ))}
-
-                {/* Empty state — only for classes */}
-                {clasesHoy.length === 0 && (
-                  <View style={styles.emptyTimeline}>
-                    <Ionicons name="sunny-outline" size={28} color={theme.separator} />
-                    <Text style={[styles.emptyTimelineText, { color: theme.icon }]}>
-                      Sin clases hoy
-                    </Text>
-                    <Text style={[styles.emptyTimelineHint, { color: theme.separator }]}>
-                      Día libre de cursada
-                    </Text>
-                  </View>
-                )}
               </View>
             </View>
 
@@ -1218,110 +1142,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-
-  // ═══ TIMELINE ═══
-  timelineSection: {
-    paddingHorizontal: 20,
-    marginTop: 28,
-  },
-  timelineHeader: {
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: -0.2,
-  },
-  timelineDate: {
-    fontSize: 13,
-    fontWeight: '500',
-    marginTop: 2,
-    marginBottom: 14,
-    textTransform: 'capitalize',
-  },
-  timelineContainer: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  timelineLine: {
-    position: 'absolute',
-    left: 23,
-    top: 16,
-    bottom: 16,
-    width: 2,
-    borderRadius: 1,
-  },
-  timelineItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-  },
-  timelineDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginRight: 12,
-    zIndex: 1,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  timelineDotActive: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
-  },
-  timelineDotEmpty: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-  },
-  timelineItemContent: {
-    flex: 1,
-  },
-  timelineTime: {
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  timelineMateria: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  timelineAula: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 1,
-  },
-  timelineNowBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  timelineNowText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  timelineSeparator: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    marginHorizontal: 12,
-    marginVertical: 4,
-  },
-
-  // Timeline empty state
-  emptyTimeline: {
-    paddingVertical: 28,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    gap: 6,
-  },
-  emptyTimelineText: { fontSize: 15, fontWeight: '500' },
-  emptyTimelineHint: { fontSize: 13 },
 
   // ═══ TASKS SECTION (Attio style) ═══
   tasksSection: {
