@@ -4,20 +4,21 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  ScrollView,
+  Platform,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
-  useColorScheme
+  useColorScheme,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { materiasApi } from '../src/services/api';
 import { DataRepository } from '../src/services/dataRepository';
 import { useAuth } from '../src/context/AuthContext';
 import { Colors } from '../src/constants/theme';
+import { AnimatedHeaderScrollView } from '../src/components/ui/animated-header-scrollview';
 
 const MESES_CORTOS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
 
@@ -60,6 +61,7 @@ export default function DetalleMateriaScreen() {
   const { id } = params as { id: string };
 
   const colorScheme = useColorScheme() ?? 'light';
+  const isDark = colorScheme === 'dark';
   const theme = Colors[colorScheme];
 
   const { isGuest, user } = useAuth();
@@ -67,12 +69,10 @@ export default function DetalleMateriaScreen() {
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
 
-  // Estados para edición
   const [nuevoDia, setNuevoDia] = useState('');
   const [nuevaHora, setNuevaHora] = useState('');
   const [nuevaAula, setNuevaAula] = useState('');
 
-  // Exámenes reales asociados a la materia
   const [examenes, setExamenes] = useState<Examen[]>([]);
 
   const loadMateria = async () => {
@@ -92,12 +92,11 @@ export default function DetalleMateriaScreen() {
           hora: item.hora,
           aula: item.aula
         });
-        // Inicializar formulario
         setNuevoDia(item.dia || 'LU');
         setNuevaHora(item.hora?.toString() || '18');
         setNuevaAula(item.aula || 'Sin aula');
       }
-      // Cargar parciales/entregas asociados a esta materia
+
       try {
         const allRecordatorios = await DataRepository.getRecordatorios();
         const filtered = (allRecordatorios || [])
@@ -139,7 +138,6 @@ export default function DetalleMateriaScreen() {
   }, [id, isGuest]);
 
   const handleGuardar = async () => {
-    // Validar hora
     const horaNum = parseInt(nuevaHora);
     if (isNaN(horaNum) || horaNum < 8 || horaNum > 23) return Alert.alert("Hora inválida", "La facultad abre de 8 a 23.");
 
@@ -152,7 +150,7 @@ export default function DetalleMateriaScreen() {
         });
 
         Alert.alert("¡Horario Actualizado!", "Se reflejará en tu agenda.");
-        loadMateria(); // Recargar datos
+        loadMateria();
         setEditMode(false);
       }
     } catch (error) {
@@ -160,12 +158,19 @@ export default function DetalleMateriaScreen() {
     }
   };
 
-  // Color del tema según estado
+  // Color based on estado
   const getColorTema = () => {
     if (materia?.estado === 'aprobado') return theme.green;
     if (materia?.estado === 'regular') return theme.orange;
     if (materia?.estado === 'cursado') return theme.blue;
-    return theme.icon;
+    return theme.tint;
+  };
+
+  const getEstadoLabel = () => {
+    if (materia?.estado === 'aprobado') return 'Aprobada';
+    if (materia?.estado === 'regular') return 'Regular';
+    if (materia?.estado === 'cursado') return 'Cursando';
+    return materia?.estado || '';
   };
 
   if (loading) return (
@@ -182,45 +187,77 @@ export default function DetalleMateriaScreen() {
 
   const colorTema = getColorTema();
 
+  // Theme-aware gradient using materia color
+  const headerGradient = {
+    colors: [
+      colorTema + 'F2',
+      colorTema + 'CC',
+      'transparent',
+    ] as const,
+    start: { x: 0.5, y: 0 } as const,
+    end: { x: 0.5, y: 1 } as const,
+  };
+
+  const headerBlur = isDark
+    ? { intensity: 12, tint: Platform.OS === 'ios' ? 'systemThickMaterialDark' as const : 'dark' as const }
+    : { intensity: 15, tint: Platform.OS === 'ios' ? 'systemThickMaterialLight' as const : 'light' as const };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <StatusBar barStyle={colorScheme === 'dark' ? 'light-content' : 'light-content'} backgroundColor={colorTema} />
+      <StatusBar barStyle="light-content" backgroundColor={colorTema} />
 
-      {/* HEADER */}
-      <View style={[styles.header, { backgroundColor: colorTema }]}>
-        <SafeAreaView>
-          <View style={styles.topBar}>
-            <TouchableOpacity onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={28} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.topTitle}>Ficha Académica</Text>
-
-            {/* Botón Editar / Guardar */}
-            <TouchableOpacity onPress={() => editMode ? handleGuardar() : setEditMode(true)}>
-              <Ionicons name={editMode ? "checkmark-circle" : "create-outline"} size={28} color="#fff" />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.titleBox}>
-            <Text style={styles.materiaTitle}>{materia.nombre}</Text>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{materia.estado.toUpperCase()}</Text>
-            </View>
-          </View>
-        </SafeAreaView>
-      </View>
-
-      <ScrollView style={styles.content}>
-
-        {/* Tarjeta de Cursada (EDITABLE) */}
+      <AnimatedHeaderScrollView
+        largeTitle={materia.nombre}
+        subtitle={getEstadoLabel()}
+        containerStyle={{ backgroundColor: theme.background }}
+        contentContainerStyle={styles.scrollContent}
+        headerBackgroundGradient={headerGradient}
+        headerBlurConfig={headerBlur}
+        smallTitleBlurTint={isDark ? 'dark' : 'light'}
+        largeHeaderTitleStyle={styles.largeMateriaTitle}
+        largeHeaderSubtitleStyle={[styles.largeSubtitle, { backgroundColor: 'rgba(255,255,255,0.2)' }]}
+        smallHeaderTitleStyle={[styles.smallTitle, { color: theme.text }]}
+        smallHeaderSubtitleStyle={{ color: theme.icon }}
+        leftComponent={
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.back();
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={styles.headerButton}
+          >
+            <Ionicons name="chevron-back" size={24} color="#fff" />
+          </TouchableOpacity>
+        }
+        rightComponent={
+          <TouchableOpacity
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              editMode ? handleGuardar() : setEditMode(true);
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={styles.headerButton}
+          >
+            <Ionicons
+              name={editMode ? 'checkmark-circle' : 'create-outline'}
+              size={22}
+              color="#fff"
+            />
+          </TouchableOpacity>
+        }
+      >
+        {/* Información de Cursada */}
         <View style={[styles.card, { backgroundColor: theme.backgroundSecondary }]}>
           <Text style={[styles.cardTitle, { color: theme.text }]}>
-            {editMode ? "Editar Horarios" : "Información de Cursada"}
+            {editMode ? 'Editar Horarios' : 'Información de Cursada'}
           </Text>
 
           {/* DÍA */}
           <View style={styles.row}>
-            <Ionicons name="calendar-outline" size={20} color={theme.icon} />
+            <View style={[styles.rowIcon, { backgroundColor: colorTema + '18' }]}>
+              <Ionicons name="calendar-outline" size={18} color={colorTema} />
+            </View>
             {editMode ? (
               <View style={styles.editRow}>
                 <Text style={[styles.label, { color: theme.icon }]}>Día (LU, MA, MI...):</Text>
@@ -233,13 +270,18 @@ export default function DetalleMateriaScreen() {
                 />
               </View>
             ) : (
-              <Text style={[styles.rowText, { color: theme.text }]}>Día: {materia.dia || "A confirmar"}</Text>
+              <View style={styles.rowTextContainer}>
+                <Text style={[styles.rowLabel, { color: theme.icon }]}>Día</Text>
+                <Text style={[styles.rowValue, { color: theme.text }]}>{materia.dia || 'A confirmar'}</Text>
+              </View>
             )}
           </View>
 
           {/* HORA */}
           <View style={styles.row}>
-            <Ionicons name="time-outline" size={20} color={theme.icon} />
+            <View style={[styles.rowIcon, { backgroundColor: colorTema + '18' }]}>
+              <Ionicons name="time-outline" size={18} color={colorTema} />
+            </View>
             {editMode ? (
               <View style={styles.editRow}>
                 <Text style={[styles.label, { color: theme.icon }]}>Hora Inicio (0-23):</Text>
@@ -252,13 +294,18 @@ export default function DetalleMateriaScreen() {
                 />
               </View>
             ) : (
-              <Text style={[styles.rowText, { color: theme.text }]}>Horario: {materia.hora}:00 hs</Text>
+              <View style={styles.rowTextContainer}>
+                <Text style={[styles.rowLabel, { color: theme.icon }]}>Horario</Text>
+                <Text style={[styles.rowValue, { color: theme.text }]}>{materia.hora}:00 hs</Text>
+              </View>
             )}
           </View>
 
           {/* AULA */}
-          <View style={styles.row}>
-            <Ionicons name="location-outline" size={20} color={theme.icon} />
+          <View style={[styles.row, { marginBottom: editMode ? 8 : 0 }]}>
+            <View style={[styles.rowIcon, { backgroundColor: colorTema + '18' }]}>
+              <Ionicons name="location-outline" size={18} color={colorTema} />
+            </View>
             {editMode ? (
               <View style={styles.editRow}>
                 <Text style={[styles.label, { color: theme.icon }]}>Aula:</Text>
@@ -270,14 +317,21 @@ export default function DetalleMateriaScreen() {
                 />
               </View>
             ) : (
-              <Text style={[styles.rowText, { color: theme.text }]}>{materia.aula}</Text>
+              <View style={styles.rowTextContainer}>
+                <Text style={[styles.rowLabel, { color: theme.icon }]}>Aula</Text>
+                <Text style={[styles.rowValue, { color: theme.text }]}>{materia.aula || 'Sin aula'}</Text>
+              </View>
             )}
           </View>
 
-          {editMode && <Text style={[styles.hint, { color: theme.icon }]}>Toca el ✔️ arriba para guardar.</Text>}
+          {editMode && (
+            <Text style={[styles.hint, { color: theme.icon }]}>
+              Toca el check arriba a la derecha para guardar.
+            </Text>
+          )}
         </View>
 
-        {/* Parciales y entregas reales */}
+        {/* Parciales y entregas */}
         <View style={[styles.card, { backgroundColor: theme.backgroundSecondary }]}>
           <Text style={[styles.cardTitle, { color: theme.text }]}>Parciales y Entregas</Text>
           {examenes.length === 0 ? (
@@ -328,40 +382,111 @@ export default function DetalleMateriaScreen() {
           )}
         </View>
 
-      </ScrollView>
+        <View style={{ height: 40 }} />
+      </AnimatedHeaderScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { padding: 20, paddingBottom: 30, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 },
-  topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  topTitle: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-  titleBox: { marginTop: 10 },
-  materiaTitle: { color: '#fff', fontSize: 24, fontWeight: 'bold', marginBottom: 5 },
-  badge: { backgroundColor: 'rgba(255,255,255,0.25)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start' },
-  badgeText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  content: { padding: 20, marginTop: -25 },
-  card: { borderRadius: 15, padding: 20, marginBottom: 15, elevation: 3, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
-  cardTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 15 },
-  row: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  rowText: { marginLeft: 10, fontSize: 14 },
+  scrollContent: { paddingBottom: 40 },
   notFoundText: { textAlign: 'center', marginTop: 50, fontSize: 16 },
 
-  // Estilos de Edición
-  editRow: { flex: 1, flexDirection: 'row', alignItems: 'center', marginLeft: 10 },
+  // Header elements
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  largeMateriaTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.3,
+  },
+  largeSubtitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+    alignSelf: 'flex-start',
+  },
+  smallTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+
+  // Cards
+  card: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+
+  // Rows
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  rowIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  rowTextContainer: {
+    flex: 1,
+  },
+  rowLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  rowValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+
+  // Edit mode
+  editRow: { flex: 1, flexDirection: 'row', alignItems: 'center' },
   label: { fontSize: 12, marginRight: 10 },
   input: { borderBottomWidth: 1, flex: 1, paddingVertical: 2, fontSize: 14 },
-  hint: { fontSize: 10, textAlign: 'center', marginTop: 10, fontStyle: 'italic' },
+  hint: { fontSize: 11, textAlign: 'center', marginTop: 10, fontStyle: 'italic' },
 
-  // Estilos Examen
-  emptyExams: { alignItems: 'center', paddingVertical: 16, gap: 8 },
+  // Examenes
+  emptyExams: { alignItems: 'center', paddingVertical: 20, gap: 8 },
   emptyExamsText: { fontSize: 13, textAlign: 'center', paddingHorizontal: 10 },
   examRow: { flexDirection: 'row', alignItems: 'center' },
   dateBox: {
-    width: 50, height: 50, borderRadius: 12, borderWidth: 2,
-    justifyContent: 'center', alignItems: 'center', marginRight: 14,
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
   },
   dateBoxDay: { fontSize: 18, fontWeight: '800', lineHeight: 20 },
   dateBoxMonth: { fontSize: 10, fontWeight: '700' },

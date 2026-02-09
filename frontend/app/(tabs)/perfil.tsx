@@ -12,13 +12,9 @@ import {
   Image,
   Switch,
   Alert,
-  Animated,
-  ScrollView,
   Dimensions,
   type GestureResponderEvent,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CarreraModal } from '../../src/components/home';
@@ -30,6 +26,7 @@ import { DataRepository } from '../../src/services/dataRepository';
 import { supabase } from '../../src/config/supabase';
 import { usePremium } from '../../src/context/PremiumContext';
 import { RippleRect } from '../../src/components/ui/skia-ripple';
+import { AnimatedHeaderScrollView } from '../../src/components/ui/animated-header-scrollview';
 
 interface Stats {
   aprobadas: number;
@@ -54,20 +51,6 @@ export default function PerfilScreen() {
   const devTapCount = useRef(0);
   const devTapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const scrollY = useRef(new Animated.Value(0)).current;
-
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [40, 70],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-
-  const largeTitleOpacity = scrollY.interpolate({
-    inputRange: [0, 40],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
-
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -79,23 +62,19 @@ export default function PerfilScreen() {
       const userId = user?.id;
       if (!userId) return;
 
-      // Load privacy mode
       const savedPrivacy = await AsyncStorage.getItem('privacy_mode');
       if (savedPrivacy !== null) {
         setPrivacyMode(savedPrivacy === 'true');
       }
 
-      // Load Profile & Career
       const profile = await DataRepository.getUserProfile(userId);
       setCarrera(profile.carrera?.nombre || 'No seleccionada');
 
-      // Load stats
       const materias = await DataRepository.getMisMaterias(userId);
       const aprobadas = materias.filter((m: any) => m.estado === 'aprobado').length;
       const regulares = materias.filter((m: any) => m.estado === 'regular').length;
       const cursando = materias.filter((m: any) => m.estado === 'cursado').length;
 
-      // Get total from plan filtered by career
       const allMaterias = await DataRepository.getMateriasDisponibles(userId);
       const totalPlan = materias.length + allMaterias.length;
 
@@ -135,10 +114,8 @@ export default function PerfilScreen() {
       const userId = user?.id;
       if (!userId) return;
 
-      // 1. Update in our DB
       await DataRepository.updateCareer(userId, carreraId);
 
-      // 2. Update in Supabase Metadata (optional but good for consistency)
       await supabase.auth.updateUser({
         data: {
           carrera: carreraNombre,
@@ -169,43 +146,45 @@ export default function PerfilScreen() {
 
   const progreso = stats.totalPlan > 0 ? Math.round((stats.aprobadas / stats.totalPlan) * 100) : 0;
 
+  // Theme-aware gradient/blur config
+  const headerGradient = isDark
+    ? {
+        colors: ['rgba(0, 0, 0, 0.9)', 'rgba(0, 0, 0, 0.8)', 'transparent'] as const,
+        start: { x: 0.5, y: 0 } as const,
+        end: { x: 0.5, y: 1 } as const,
+      }
+    : {
+        colors: ['rgba(30, 58, 138, 0.95)', 'rgba(30, 58, 138, 0.85)', 'transparent'] as const,
+        start: { x: 0.5, y: 0 } as const,
+        end: { x: 0.5, y: 1 } as const,
+      };
+
+  const headerBlur = isDark
+    ? { intensity: 10, tint: Platform.OS === 'ios' ? 'systemThickMaterialDark' as const : 'dark' as const }
+    : { intensity: 15, tint: Platform.OS === 'ios' ? 'systemThickMaterialLight' as const : 'light' as const };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'light-content'} />
 
-      {/* STICKY HEADER */}
-      <Animated.View style={[styles.headerInline, { opacity: headerOpacity }]}>
-        <BlurView intensity={80} tint={colorScheme} style={StyleSheet.absoluteFill} />
-        <View style={[styles.headerBorder, { borderBottomColor: theme.separator }]} />
-        <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
-          <View style={styles.headerInlineContent}>
-            <Text style={[styles.headerInlineTitle, { color: theme.text }]}>Perfil</Text>
-          </View>
-        </SafeAreaView>
-      </Animated.View>
-
-      <Animated.ScrollView
-        style={styles.scrollView}
+      <AnimatedHeaderScrollView
+        largeTitle="Perfil"
+        largeTitleLabel="MI CUENTA"
+        subtitle={user?.email || undefined}
+        containerStyle={{ backgroundColor: theme.background }}
         contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: true }
-        )}
-        scrollEventThrottle={16}
+        headerBackgroundGradient={headerGradient}
+        headerBlurConfig={headerBlur}
+        smallTitleBlurTint={isDark ? 'dark' : 'light'}
+        largeHeaderTitleStyle={[styles.headerLargeTitle, { color: theme.text }]}
+        largeHeaderSubtitleStyle={{ color: theme.icon, fontSize: 14, fontWeight: '500' }}
+        largeTitleLabelStyle={{ color: theme.icon }}
+        smallHeaderTitleStyle={[styles.headerInlineTitle, { color: theme.text }]}
       >
-        {/* LARGE TITLE */}
-        <Animated.View style={[styles.headerLarge, { opacity: largeTitleOpacity }]}>
-          <SafeAreaView edges={['top']}>
-            <Text style={[styles.headerLabel, { color: theme.icon }]}>MI CUENTA</Text>
-            <Text style={[styles.headerLargeTitle, { color: theme.text }]}>Perfil</Text>
-          </SafeAreaView>
-        </Animated.View>
-
         {/* PROFILE CARD */}
         <View style={styles.section}>
           <RippleRect
-            width={Dimensions.get('window').width - 40}
+            width={Dimensions.get('window').width - 64}
             height={200}
             borderRadius={20}
             color={theme.backgroundSecondary}
@@ -323,8 +302,6 @@ export default function PerfilScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: theme.icon }]}>CUENTA</Text>
           <View style={[styles.optionsContainer, { backgroundColor: theme.backgroundSecondary }]}>
-
-
             {/* Premium Button/Badge */}
             {isPro ? (
               <View style={[styles.optionRow, { borderBottomColor: theme.separator }]}>
@@ -387,8 +364,6 @@ export default function PerfilScreen() {
               </View>
               <Ionicons name="chevron-forward" size={18} color={theme.separator} />
             </TouchableOpacity>
-
-
           </View>
         </View>
 
@@ -427,7 +402,7 @@ export default function PerfilScreen() {
               <Ionicons name="chevron-forward" size={18} color={theme.separator} />
             </TouchableOpacity>
 
-            {/* DEV: Premium Toggle - Visible en desarrollo, modo mock, o gesto secreto */}
+            {/* DEV: Premium Toggle */}
             {(__DEV__ || __mockMode || showDevToggle) && (
               <View style={[styles.optionRow, { borderBottomWidth: 0 }]}>
                 <View style={[styles.optionIcon, { backgroundColor: __mockMode ? '#FF9500' : '#FF3B30' }]}>
@@ -459,7 +434,7 @@ export default function PerfilScreen() {
           </View>
         </View>
 
-        {/* VERSION — tocar 7 veces para modo dev */}
+        {/* VERSION */}
         <TouchableOpacity onPress={handleVersionTap} activeOpacity={0.6}>
           <Text style={[styles.versionText, { color: theme.icon }]}>
             miFACU v1.0.0{showDevToggle ? ' (Dev)' : ''}
@@ -467,7 +442,7 @@ export default function PerfilScreen() {
         </TouchableOpacity>
 
         <View style={{ height: 120 }} />
-      </Animated.ScrollView>
+      </AnimatedHeaderScrollView>
 
       {/* CARRERA MODAL */}
       <CarreraModal
@@ -491,49 +466,13 @@ export default function PerfilScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollView: { flex: 1 },
   scrollContent: { paddingBottom: 40 },
 
-  // Header
-  headerInline: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: Platform.OS === 'ios' ? 100 : 70,
-    zIndex: 100,
-    overflow: 'hidden',
-  },
-  headerBorder: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerSafeArea: { flex: 1 },
-  headerInlineContent: {
-    flex: 1,
-    paddingTop: Platform.OS === 'ios' ? 45 : 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
+  // Header title styles (used by AnimatedHeaderScrollView)
+  headerLargeTitle: { fontSize: 34, fontWeight: '800', letterSpacing: 0.37 },
   headerInlineTitle: { fontSize: 17, fontWeight: '700' },
 
-  headerLarge: { paddingTop: 50, paddingHorizontal: 20, paddingBottom: 10 },
-  headerLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    marginBottom: 2,
-    textTransform: 'uppercase',
-  },
-  headerLargeTitle: { fontSize: 34, fontWeight: '800', letterSpacing: 0.37 },
-
-  section: { paddingHorizontal: 20, marginBottom: 24 },
+  section: { marginBottom: 24 },
   sectionTitle: {
     fontSize: 12,
     fontWeight: '600',
@@ -554,15 +493,6 @@ const styles = StyleSheet.create({
   avatar: { width: 80, height: 80, borderRadius: 40 },
   profileName: { fontSize: 22, fontWeight: '700', marginTop: 16, letterSpacing: -0.3 },
   profileEmail: { fontSize: 14, fontWeight: '500', marginTop: 4 },
-  guestBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    marginTop: 12,
-  },
-  guestBadgeText: { fontSize: 13, fontWeight: '600', marginLeft: 4 },
 
   // Stats
   statsCard: {
@@ -607,7 +537,6 @@ const styles = StyleSheet.create({
   optionContent: { flex: 1, marginLeft: 14 },
   optionLabel: { fontSize: 16, fontWeight: '600' },
   optionHint: { fontSize: 12, fontWeight: '500', marginTop: 2 },
-  statusDot: { width: 10, height: 10, borderRadius: 5 },
 
   // Premium Badge
   premiumBadgeRow: {
@@ -645,7 +574,7 @@ const styles = StyleSheet.create({
   },
   logoutText: { fontSize: 16, fontWeight: '600', marginLeft: 10 },
 
-  // Custom toggle for dark mode (replaces Switch to capture touch coords)
+  // Custom toggle for dark mode
   themeToggle: {
     width: 50,
     height: 30,

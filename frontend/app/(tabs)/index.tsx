@@ -166,11 +166,21 @@ export default function HomeScreen() {
   const [progressCollapsed, setProgressCollapsed] = useState(false);
   const progressAnim = useRef(new Animated.Value(1)).current;
 
+  // Cursando carousel collapsed state
+  const [cursandoCollapsed, setCursandoCollapsed] = useState(false);
+  const cursandoAnim = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     AsyncStorage.getItem('@mifacu_progress_collapsed').then((val) => {
       if (val === 'true') {
         setProgressCollapsed(true);
         progressAnim.setValue(0);
+      }
+    });
+    AsyncStorage.getItem('@mifacu_cursando_collapsed').then((val) => {
+      if (val === 'true') {
+        setCursandoCollapsed(true);
+        cursandoAnim.setValue(0);
       }
     });
   }, []);
@@ -186,6 +196,18 @@ export default function HomeScreen() {
       friction: 8,
     }).start();
   }, [progressCollapsed, progressAnim]);
+
+  const toggleCursandoCollapsed = useCallback(() => {
+    const newVal = !cursandoCollapsed;
+    setCursandoCollapsed(newVal);
+    AsyncStorage.setItem('@mifacu_cursando_collapsed', String(newVal));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Animated.spring(cursandoAnim, {
+      toValue: newVal ? 0 : 1,
+      useNativeDriver: false,
+      friction: 8,
+    }).start();
+  }, [cursandoCollapsed, cursandoAnim]);
 
   // Quick Tasks state
   const [newTask, setNewTask] = useState('');
@@ -665,16 +687,38 @@ export default function HomeScreen() {
               {/* Carousel — Materias Cursando */}
               {cursandoMaterias.length > 0 && (
                 <View>
-                  <Text style={[styles.carouselSectionTitle, { color: theme.text }]}>
-                    Cursando
-                  </Text>
-                  <CinematicCarousel
-                    data={cursandoMaterias}
-                    renderItem={renderCursandoItem}
-                    itemWidth={CAROUSEL_ITEM_WIDTH}
-                    itemHeight={CAROUSEL_ITEM_HEIGHT}
-                    style={styles.carouselContainer}
-                  />
+                  <Pressable
+                    onPress={toggleCursandoCollapsed}
+                    style={styles.carouselSectionHeader}
+                    hitSlop={{ top: 6, bottom: 6, left: 10, right: 10 }}
+                  >
+                    <Text style={[styles.carouselSectionTitle, { color: theme.text, marginBottom: 0 }]}>
+                      Cursando
+                    </Text>
+                    <View style={[styles.carouselTogglePill, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
+                      <Ionicons
+                        name={cursandoCollapsed ? 'chevron-down' : 'chevron-up'}
+                        size={14}
+                        color={isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.35)'}
+                      />
+                    </View>
+                  </Pressable>
+                  <Animated.View style={{
+                    maxHeight: cursandoAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, CAROUSEL_ITEM_HEIGHT + 20],
+                    }),
+                    opacity: cursandoAnim,
+                    overflow: 'hidden',
+                  }}>
+                    <CinematicCarousel
+                      data={cursandoMaterias}
+                      renderItem={renderCursandoItem}
+                      itemWidth={CAROUSEL_ITEM_WIDTH}
+                      itemHeight={CAROUSEL_ITEM_HEIGHT}
+                      style={styles.carouselContainer}
+                    />
+                  </Animated.View>
                 </View>
               )}
 
@@ -1293,11 +1337,24 @@ const styles = StyleSheet.create({
   },
 
   // ═══ CINEMATIC CAROUSEL ═══
+  carouselSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
   carouselSectionTitle: {
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: -0.2,
     marginBottom: 10,
+  },
+  carouselTogglePill: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   carouselContainer: {
     marginHorizontal: -20,
