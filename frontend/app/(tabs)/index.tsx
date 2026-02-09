@@ -45,6 +45,7 @@ import {
   CarreraModal,
 } from '../../src/components/home';
 import { RippleRect } from '../../src/components/ui/skia-ripple';
+import { StaggeredText } from '../../src/components/ui/animated-text';
 
 // Types
 import type { ThemeColors } from '../../src/types';
@@ -476,9 +477,16 @@ export default function HomeScreen() {
             <SafeAreaView edges={['top']}>
               <View style={styles.headerTop}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.headerTitle}>
-                    {currentGreeting}, {userName}
-                  </Text>
+                  <StaggeredText
+                    text={`${currentGreeting}, ${userName}`}
+                    style={styles.headerTitle}
+                    animationConfig={{
+                      characterDelay: 20,
+                      maxBlurIntensity: 40,
+                      spring: { damping: 15, stiffness: 210, mass: 1 },
+                    }}
+                    enterFrom={{ opacity: 0, translateY: 30, scale: 0.3, rotate: 0 }}
+                  />
                   {!loading && (
                     <Text style={styles.headerSubtitle}>
                       {subtituloContextual}
