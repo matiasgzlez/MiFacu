@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useColorScheme as useSystemColorScheme, Appearance } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ThemeSwitcher } from '../components/ui/theme-switcher';
+import type { ThemeSwitcherRef } from '../components/ui/theme-switcher';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 type ColorScheme = 'light' | 'dark';
@@ -15,7 +17,7 @@ interface ThemeContextType {
   /** Set theme mode (light, dark, or system) */
   setThemeMode: (mode: ThemeMode) => Promise<void>;
   /** Toggle between light and dark (ignores system) */
-  toggleTheme: () => Promise<void>;
+  toggleTheme: (options?: { touchX?: number; touchY?: number }) => Promise<void>;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -30,6 +32,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const systemColorScheme = useSystemColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
   const [isLoaded, setIsLoaded] = useState(false);
+  const switcherRef = useRef<ThemeSwitcherRef>(null);
 
   // Load saved theme preference on mount
   useEffect(() => {
@@ -69,11 +72,19 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     }
   }, []);
 
-  // Toggle between light and dark
-  const toggleTheme = useCallback(async () => {
+  // Toggle between light and dark (with optional animated transition)
+  const doToggle = useCallback(async () => {
     const newMode: ThemeMode = colorScheme === 'light' ? 'dark' : 'light';
     await setThemeMode(newMode);
   }, [colorScheme, setThemeMode]);
+
+  const toggleTheme = useCallback(async (options?: { touchX?: number; touchY?: number }) => {
+    if (switcherRef.current) {
+      await switcherRef.current.animate(options?.touchX, options?.touchY);
+    } else {
+      await doToggle();
+    }
+  }, [doToggle]);
 
   const value = useMemo(
     () => ({
@@ -91,7 +102,13 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     return null;
   }
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>
+      <ThemeSwitcher ref={switcherRef} onThemeChange={doToggle}>
+        {children}
+      </ThemeSwitcher>
+    </ThemeContext.Provider>
+  );
 }
 
 export function useTheme(): ThemeContextType {

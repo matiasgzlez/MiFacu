@@ -8,12 +8,14 @@ import {
   StatusBar,
   Platform,
   TouchableOpacity,
+  Pressable,
   Image,
   Switch,
   Alert,
   Animated,
   ScrollView,
   Dimensions,
+  type GestureResponderEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
@@ -103,9 +105,10 @@ export default function PerfilScreen() {
     }
   };
 
-  const handleToggleDarkMode = useCallback(async () => {
+  const handleToggleDarkMode = useCallback(async (e: GestureResponderEvent) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await toggleTheme();
+    const { pageX, pageY } = e.nativeEvent;
+    await toggleTheme({ touchX: pageX, touchY: pageY });
   }, [toggleTheme]);
 
   const handlePrivacyChange = useCallback(async (val: boolean) => {
@@ -265,7 +268,10 @@ export default function PerfilScreen() {
           <Text style={[styles.sectionTitle, { color: theme.icon }]}>PREFERENCIAS</Text>
           <View style={[styles.optionsContainer, { backgroundColor: theme.backgroundSecondary }]}>
             {/* Dark Mode */}
-            <View style={[styles.optionRow, { borderBottomColor: theme.separator }]}>
+            <Pressable
+              style={[styles.optionRow, { borderBottomColor: theme.separator }]}
+              onPress={handleToggleDarkMode}
+            >
               <View style={[styles.optionIcon, { backgroundColor: isDark ? theme.blue : theme.orange }]}>
                 <Ionicons name={isDark ? 'moon' : 'sunny'} size={18} color="white" />
               </View>
@@ -275,14 +281,23 @@ export default function PerfilScreen() {
                   {isDark ? 'Activado' : 'Desactivado'}
                 </Text>
               </View>
-              <Switch
-                value={isDark}
-                onValueChange={handleToggleDarkMode}
-                trackColor={{ false: theme.separator, true: theme.tint + '60' }}
-                thumbColor={isDark ? theme.tint : '#f4f3f4'}
-                ios_backgroundColor={theme.separator}
-              />
-            </View>
+              <View
+                style={[
+                  styles.themeToggle,
+                  { backgroundColor: isDark ? theme.tint + '60' : theme.separator },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.themeToggleThumb,
+                    {
+                      backgroundColor: isDark ? theme.tint : '#f4f3f4',
+                      transform: [{ translateX: isDark ? 20 : 0 }],
+                    },
+                  ]}
+                />
+              </View>
+            </Pressable>
 
             {/* Privacy Mode */}
             <View style={styles.optionRow}>
@@ -629,6 +644,25 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   logoutText: { fontSize: 16, fontWeight: '600', marginLeft: 10 },
+
+  // Custom toggle for dark mode (replaces Switch to capture touch coords)
+  themeToggle: {
+    width: 50,
+    height: 30,
+    borderRadius: 15,
+    padding: 2,
+    justifyContent: 'center',
+  },
+  themeToggleThumb: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
+  },
 
   versionText: {
     textAlign: 'center',
