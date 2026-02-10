@@ -13,6 +13,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { MOTIVOS_REPORTE } from '../../types/calificaciones';
+import { useSaveNotification } from '../../context/SaveNotificationContext';
+import SpinButton from '../ui/spin-button';
 
 interface ReportarSheetProps {
     visible: boolean;
@@ -29,6 +31,7 @@ export function ReportarSheet({
 }: ReportarSheetProps) {
     const [selectedMotivo, setSelectedMotivo] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
+    const { showNotification } = useSaveNotification();
 
     // Animation values using RN Animated
     const slideAnim = useRef(new Animated.Value(400)).current;
@@ -73,12 +76,12 @@ export function ReportarSheet({
 
         try {
             await onSubmit(selectedMotivo);
-            Alert.alert('Reporte enviado', 'Gracias por ayudarnos a mantener la comunidad segura.');
             setSelectedMotivo(null);
             onClose();
+            showNotification('Reporte enviado');
         } catch (error: any) {
             const message = error?.response?.data?.message || 'Error al enviar el reporte';
-            Alert.alert('Error', message);
+            showNotification(message, 'error');
         } finally {
             setSubmitting(false);
         }
@@ -154,20 +157,35 @@ export function ReportarSheet({
                                 </View>
 
                                 {/* Submit button */}
-                                <TouchableOpacity
-                                    style={[
-                                        styles.submitButton,
-                                        { backgroundColor: selectedMotivo ? theme.red : theme.separator },
-                                    ]}
-                                    onPress={handleSubmit}
-                                    disabled={!selectedMotivo || submitting}
-                                >
-                                    {submitting ? (
-                                        <ActivityIndicator color="#fff" />
-                                    ) : (
-                                        <Text style={styles.submitText}>Enviar reporte</Text>
-                                    )}
-                                </TouchableOpacity>
+                                <View style={{ alignItems: 'center', marginBottom: 12 }}>
+                                    <SpinButton
+                                        idleText="Enviar reporte"
+                                        activeText="Enviando"
+                                        controlled
+                                        isActive={submitting}
+                                        disabled={!selectedMotivo || submitting}
+                                        onPress={() => handleSubmit()}
+                                        colors={{
+                                            idle: { background: selectedMotivo ? theme.red : theme.separator, text: '#FFFFFF' },
+                                            active: { background: theme.red, text: '#FFFFFF' },
+                                        }}
+                                        buttonStyle={{
+                                            paddingHorizontal: 40,
+                                            paddingVertical: 14,
+                                            borderRadius: 12,
+                                            fontSize: 16,
+                                            fontWeight: '600',
+                                        }}
+                                        spinnerConfig={{
+                                            size: 16,
+                                            strokeWidth: 1.5,
+                                            color: '#FFFFFF',
+                                            containerSize: 28,
+                                            containerBackground: theme.red,
+                                            position: { right: -10, bottom: 18 },
+                                        }}
+                                    />
+                                </View>
 
                                 <TouchableOpacity style={styles.cancelButton} onPress={handleClose}>
                                     <Text style={[styles.cancelText, { color: theme.tint }]}>Cancelar</Text>

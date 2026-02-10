@@ -19,6 +19,8 @@ import { BlurView } from 'expo-blur';
 
 import { supabase } from '../../config/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useSaveNotification } from '../../context/SaveNotificationContext';
+import SpinButton from '../ui/spin-button';
 
 interface FeedbackModalProps {
     visible: boolean;
@@ -36,6 +38,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     const [feedbackText, setFeedbackText] = useState('');
     const [sending, setSending] = useState(false);
     const { user } = useAuth();
+    const { showNotification } = useSaveNotification();
 
     const handleSubmit = async () => {
         if (!feedbackText.trim()) return;
@@ -59,20 +62,12 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
             if (error) throw error;
 
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-
-            Alert.alert(
-                '¡Gracias!',
-                'Tus comentarios nos ayudan a mejorar miFACU.',
-                [{
-                    text: 'Cerrar', onPress: () => {
-                        setFeedbackText('');
-                        onClose();
-                    }
-                }]
-            );
+            setFeedbackText('');
+            onClose();
+            showNotification('Comentario enviado');
         } catch (error) {
             console.error('Error sending feedback:', error);
-            Alert.alert('Error', 'No se pudo enviar el comentario. Intenta nuevamente.');
+            showNotification('No se pudo enviar el comentario', 'error');
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         } finally {
             setSending(false);
@@ -142,20 +137,33 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                                         {feedbackText.length}/500
                                     </Text>
 
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.submitButton,
-                                            { backgroundColor: theme.tint, opacity: !feedbackText.trim() || sending ? 0.6 : 1 }
-                                        ]}
-                                        onPress={handleSubmit}
+                                    <SpinButton
+                                        idleText="Enviar"
+                                        activeText="Enviando"
+                                        controlled
+                                        isActive={sending}
                                         disabled={!feedbackText.trim() || sending}
-                                    >
-                                        {sending ? (
-                                            <ActivityIndicator color="white" size="small" />
-                                        ) : (
-                                            <Text style={styles.submitText}>Enviar</Text>
-                                        )}
-                                    </TouchableOpacity>
+                                        onPress={() => handleSubmit()}
+                                        colors={{
+                                            idle: { background: theme.tint, text: '#FFFFFF' },
+                                            active: { background: theme.tint, text: '#FFFFFF' },
+                                        }}
+                                        buttonStyle={{
+                                            paddingHorizontal: 24,
+                                            paddingVertical: 12,
+                                            borderRadius: 12,
+                                            fontSize: 16,
+                                            fontWeight: '600',
+                                        }}
+                                        spinnerConfig={{
+                                            size: 16,
+                                            strokeWidth: 1.5,
+                                            color: '#FFFFFF',
+                                            containerSize: 28,
+                                            containerBackground: theme.tint,
+                                            position: { right: -10, bottom: 16 },
+                                        }}
+                                    />
                                 </View>
 
                             </View>

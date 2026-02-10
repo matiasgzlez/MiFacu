@@ -10,7 +10,13 @@ import { PremiumProvider } from "../src/context/PremiumContext";
 import { View, ActivityIndicator, StatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Colors } from "../src/constants/theme";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
+import * as SplashScreen from "expo-splash-screen";
+import { AnimatedSplash } from "../src/components/ui/animated-splash";
+import { SaveNotificationProvider } from "../src/context/SaveNotificationContext";
+
+// Keep the native splash visible while we load
+SplashScreen.preventAutoHideAsync();
 
 function RootNavigator() {
   const { user, loading } = useAuth();
@@ -97,17 +103,35 @@ function AppContent() {
   return (
     <AuthProvider>
       <PremiumProvider>
-        <RootNavigator />
+        <SaveNotificationProvider>
+          <RootNavigator />
+        </SaveNotificationProvider>
       </PremiumProvider>
     </AuthProvider>
   );
 }
 
 export default function RootLayout() {
+  const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
+  const [appReady, setAppReady] = useState(false);
+
+  // Once the layout mounts, hide the native splash and mark app as ready
+  const onLayoutReady = useCallback(async () => {
+    if (!appReady) {
+      setAppReady(true);
+      await SplashScreen.hideAsync();
+    }
+  }, [appReady]);
+
+  const onSplashFinish = useCallback(() => {
+    setShowAnimatedSplash(false);
+  }, []);
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutReady}>
       <ThemeProvider>
         <AppContent />
+        {showAnimatedSplash && <AnimatedSplash onFinish={onSplashFinish} />}
       </ThemeProvider>
     </GestureHandlerRootView>
   );

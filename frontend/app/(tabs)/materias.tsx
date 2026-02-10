@@ -34,6 +34,8 @@ import { materiasApi as api } from '../../src/services/api';
 import { Colors } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
+import { useSaveNotification } from '../../src/context/SaveNotificationContext';
+import SpinButton from '../../src/components/ui/spin-button';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -90,6 +92,7 @@ export default function MateriasScreen() {
   const ESTADOS_MATERIA = getEstadosMateria(theme);
 
   const { user, isGuest } = useAuth();
+  const { showNotification } = useSaveNotification();
   const [usuarioId, setUsuarioId] = useState<string>('');
   const [misMaterias, setMisMaterias] = useState<UsuarioMateria[]>([]);
   const [materiasDisponibles, setMateriasDisponibles] = useState<Materia[]>([]);
@@ -294,8 +297,9 @@ export default function MateriasScreen() {
       setModoEdicion(false);
       cerrarModalEstado();
       await cargarDatos(false);
+      showNotification(modoEdicion ? 'Materia actualizada' : 'Materia agregada');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo guardar la materia');
+      showNotification(error.message || 'No se pudo guardar la materia', 'error');
     } finally {
       setLoadingAction(false);
     }
@@ -590,11 +594,33 @@ export default function MateriasScreen() {
                         <Text style={[styles.cancelButton, { color: theme.red }]}>Cancelar</Text>
                       </TouchableOpacity>
                       <Text style={[styles.estadoModalTitle, { color: theme.text }]}>{modoEdicion ? 'Editar' : 'Estado'}</Text>
-                      <TouchableOpacity onPress={guardarMateria} disabled={loadingAction}>
-                        <Text style={[styles.doneButton, { color: theme.blue }, loadingAction && { opacity: 0.5 }]}>
-                          {loadingAction ? '...' : (modoEdicion ? 'Guardar' : 'Agregar')}
-                        </Text>
-                      </TouchableOpacity>
+                      <SpinButton
+                        idleText={modoEdicion ? 'Guardar' : 'Agregar'}
+                        activeText="Guardando"
+                        controlled
+                        isActive={loadingAction}
+                        disabled={loadingAction}
+                        onPress={() => guardarMateria()}
+                        colors={{
+                          idle: { background: theme.blue, text: '#FFFFFF' },
+                          active: { background: theme.blue, text: '#FFFFFF' },
+                        }}
+                        buttonStyle={{
+                          paddingHorizontal: 16,
+                          paddingVertical: 8,
+                          borderRadius: 20,
+                          fontSize: 14,
+                          fontWeight: '600',
+                        }}
+                        spinnerConfig={{
+                          size: 14,
+                          strokeWidth: 1.5,
+                          color: '#FFFFFF',
+                          containerSize: 24,
+                          containerBackground: theme.blue,
+                          position: { right: -8, bottom: 14 },
+                        }}
+                      />
                     </View>
 
                     {materiaSeleccionada && (

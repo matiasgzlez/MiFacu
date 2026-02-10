@@ -25,6 +25,8 @@ import {
     CreateCalificacionDTO,
     DIFICULTAD_LABELS,
 } from '../../types/calificaciones';
+import { useSaveNotification } from '../../context/SaveNotificationContext';
+import SpinButton from '../ui/spin-button';
 
 interface AgregarCalificacionSheetProps {
     visible: boolean;
@@ -44,6 +46,7 @@ export function AgregarCalificacionSheet({
     materiaNombreInicial,
 }: AgregarCalificacionSheetProps) {
     const { materias, loading: loadingMaterias } = useMateriasSelector();
+    const { showNotification } = useSaveNotification();
 
     const [materiaId, setMateriaId] = useState<number | null>(materiaIdInicial || null);
     const [profesorNombre, setProfesorNombre] = useState('');
@@ -147,9 +150,10 @@ export function AgregarCalificacionSheet({
             });
             resetForm();
             onClose();
+            showNotification('Reseña publicada');
         } catch (error: any) {
             const message = error?.response?.data?.message || 'Error al publicar la resena';
-            Alert.alert('Error', message);
+            showNotification(message, 'error');
         } finally {
             setSubmitting(false);
         }
@@ -195,23 +199,33 @@ export function AgregarCalificacionSheet({
                                             <Text style={[styles.cancelButton, { color: theme.tint }]}>Cancelar</Text>
                                         </TouchableOpacity>
                                         <Text style={[styles.title, { color: theme.text }]}>Nueva Reseña</Text>
-                                        <TouchableOpacity
-                                            onPress={handleSubmit}
+                                        <SpinButton
+                                            idleText="Publicar"
+                                            activeText="Publicando"
+                                            controlled
+                                            isActive={submitting}
                                             disabled={!isValid || submitting}
-                                        >
-                                            {submitting ? (
-                                                <ActivityIndicator size="small" color={theme.tint} />
-                                            ) : (
-                                                <Text
-                                                    style={[
-                                                        styles.submitButton,
-                                                        { color: isValid ? theme.tint : theme.icon },
-                                                    ]}
-                                                >
-                                                    Publicar
-                                                </Text>
-                                            )}
-                                        </TouchableOpacity>
+                                            onPress={() => handleSubmit()}
+                                            colors={{
+                                                idle: { background: theme.tint, text: '#FFFFFF' },
+                                                active: { background: theme.tint, text: '#FFFFFF' },
+                                            }}
+                                            buttonStyle={{
+                                                paddingHorizontal: 16,
+                                                paddingVertical: 8,
+                                                borderRadius: 20,
+                                                fontSize: 14,
+                                                fontWeight: '600',
+                                            }}
+                                            spinnerConfig={{
+                                                size: 14,
+                                                strokeWidth: 1.5,
+                                                color: '#FFFFFF',
+                                                containerSize: 24,
+                                                containerBackground: theme.tint,
+                                                position: { right: -8, bottom: 14 },
+                                            }}
+                                        />
                                     </View>
 
                                     <ScrollView style={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
