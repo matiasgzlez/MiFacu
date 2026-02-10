@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DataRepository } from '../services/dataRepository';
 import { useAuth } from '../context/AuthContext';
+import { CALENDARIO_UTN_2026, UTN_EVENT_COLORS } from '../data/calendarioUTN';
+import { CALENDARIO_UNNE_FAU_2026, UNNE_FAU_EVENT_COLORS, UNNE_FAU_EVENT_LABELS } from '../data/calendarioUNNE_FAU';
 
 // --- Types ---
 
@@ -13,6 +15,10 @@ export interface TimelineEvent {
   materiaId?: number;
   materiaNombre: string;
   fecha: Date;
+  isInstitutional?: boolean;
+  institutionalTipo?: string;  // dot dedup key, e.g. 'utn:mesa_examen'
+  institutionalColor?: string; // pre-resolved color
+  institutionalLabel?: string; // pre-resolved label for badge
 }
 
 export interface WeekData {
@@ -82,7 +88,9 @@ function parseISODate(str: string): Date {
 
 // --- Hook ---
 
-export function useTimelineData() {
+export function useTimelineData(options?: { showUTN?: boolean; showUNNE_FAU?: boolean }) {
+  const showUTN = options?.showUTN ?? false;
+  const showUNNE_FAU = options?.showUNNE_FAU ?? false;
   const { user, isGuest } = useAuth();
   const [data, setData] = useState<TimelineData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -232,6 +240,49 @@ export function useTimelineData() {
         eventsByDate.get(key)!.push(ev);
       }
 
+      // Merge institutional calendar events (they don't affect stress/hellWeeks)
+      const addInstitutionalEvents = (
+        calendar: { id: string; fecha: string; nombre: string; tipo: string }[],
+        prefix: string,
+        source: string,
+        colorMap: Record<string, string>,
+        labelMap: Record<string, string>,
+      ) => {
+        for (const ev of calendar) {
+          const key = ev.fecha;
+          const timelineEv: TimelineEvent = {
+            id: ev.id,
+            tipo: 'Parcial', // placeholder, rendering uses institutional fields
+            nombre: ev.nombre,
+            materiaNombre: source,
+            fecha: parseISODate(ev.fecha),
+            isInstitutional: true,
+            institutionalTipo: `${prefix}:${ev.tipo}`,
+            institutionalColor: colorMap[ev.tipo] || '#6B7280',
+            institutionalLabel: labelMap[ev.tipo] || ev.tipo,
+          };
+          if (!eventsByDate.has(key)) {
+            eventsByDate.set(key, []);
+          }
+          eventsByDate.get(key)!.push(timelineEv);
+        }
+      };
+
+      if (showUTN) {
+        addInstitutionalEvents(
+          CALENDARIO_UTN_2026, 'utn', 'UTN-FRRE',
+          UTN_EVENT_COLORS, { inicio_fin_cuatri: 'Inicio/Fin cuatri', receso: 'Receso', mesa_examen: 'Mesa de examen', feriado: 'Feriado' },
+        );
+      }
+
+      if (showUNNE_FAU) {
+        addInstitutionalEvents(
+          CALENDARIO_UNNE_FAU_2026, 'unne_fau', 'UNNE — FAU',
+          UNNE_FAU_EVENT_COLORS as Record<string, string>,
+          UNNE_FAU_EVENT_LABELS as Record<string, string>,
+        );
+      }
+
       // monthsRange: first and last month of the semester
       const monthsRange = { start, end };
 
@@ -251,7 +302,7 @@ export function useTimelineData() {
     } finally {
       setLoading(false);
     }
-  }, [user?.id, isGuest]);
+  }, [user?.id, isGuest, showUTN, showUNNE_FAU]);
 
   useEffect(() => {
     load();

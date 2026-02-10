@@ -175,14 +175,24 @@ export default function TimelineChart({
     [selectedDate, fadeAnim]
   );
 
-  // Get unique event types for a day (for dots)
-  const getEventTypes = useCallback(
-    (dateKey: string): string[] => {
+  // Get unique dot entries for a day: { key, color }
+  const getDayDots = useCallback(
+    (dateKey: string): { key: string; color: string }[] => {
       const dayEvents = eventsByDate.get(dateKey);
       if (!dayEvents) return [];
-      const types = new Set<string>();
-      dayEvents.forEach((ev) => types.add(ev.tipo));
-      return Array.from(types);
+      const seen = new Map<string, string>();
+      dayEvents.forEach((ev) => {
+        if (ev.isInstitutional && ev.institutionalTipo) {
+          if (!seen.has(ev.institutionalTipo)) {
+            seen.set(ev.institutionalTipo, ev.institutionalColor || '#6B7280');
+          }
+        } else {
+          if (!seen.has(ev.tipo)) {
+            seen.set(ev.tipo, EVENT_COLORS[ev.tipo] || '#6B7280');
+          }
+        }
+      });
+      return Array.from(seen, ([key, color]) => ({ key, color }));
     },
     [eventsByDate]
   );
@@ -240,7 +250,7 @@ export default function TimelineChart({
             {grid.slice(rowIdx * 7, rowIdx * 7 + 7).map((cell) => {
               const isToday = isSameDay(cell.date, today) && cell.isCurrentMonth;
               const isSelected = selectedDate === cell.dateKey && cell.isCurrentMonth;
-              const eventTypes = cell.isCurrentMonth ? getEventTypes(cell.dateKey) : [];
+              const dots = cell.isCurrentMonth ? getDayDots(cell.dateKey) : [];
 
               return (
                 <TouchableOpacity
@@ -275,12 +285,12 @@ export default function TimelineChart({
 
                   {/* Event dots */}
                   <View style={styles.dotsContainer}>
-                    {eventTypes.map((tipo) => (
+                    {dots.map((dot) => (
                       <View
-                        key={tipo}
+                        key={dot.key}
                         style={[
                           styles.dot,
-                          { backgroundColor: EVENT_COLORS[tipo] || '#6B7280' },
+                          { backgroundColor: dot.color },
                         ]}
                       />
                     ))}
@@ -297,45 +307,82 @@ export default function TimelineChart({
         <Animated.View style={[styles.eventsSection, { opacity: fadeAnim }]}>
           <View style={[styles.eventsDivider, { backgroundColor: theme.separator }]} />
           {selectedEvents.length > 0 ? (
-            selectedEvents.map((ev) => (
-              <View
-                key={ev.id}
-                style={[
-                  styles.eventCard,
-                  { backgroundColor: isDark ? '#1a1a1a' : '#FFFFFF' },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.eventStripe,
-                    { backgroundColor: EVENT_COLORS[ev.tipo] || '#6B7280' },
-                  ]}
-                />
-                <View style={styles.eventInfo}>
-                  <Text style={[styles.eventName, { color: theme.text }]} numberOfLines={1}>
-                    {ev.nombre}
-                  </Text>
-                  <Text style={[styles.eventMateria, { color: theme.icon }]} numberOfLines={1}>
-                    {ev.materiaNombre}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.eventTypeBadge,
-                    { backgroundColor: (EVENT_COLORS[ev.tipo] || '#6B7280') + '20' },
-                  ]}
-                >
-                  <Text
+            selectedEvents.map((ev) => {
+              if (ev.isInstitutional) {
+                const color = ev.institutionalColor || '#6B7280';
+                return (
+                  <View
+                    key={ev.id}
                     style={[
-                      styles.eventTypeText,
-                      { color: EVENT_COLORS[ev.tipo] || '#6B7280' },
+                      styles.eventCard,
+                      { backgroundColor: color + '18' },
                     ]}
                   >
-                    {EVENT_BADGE_LABELS[ev.tipo] || ev.tipo}
-                  </Text>
+                    <View style={styles.institutionalIconContainer}>
+                      <Ionicons name="school-outline" size={18} color={color} />
+                    </View>
+                    <View style={styles.eventInfo}>
+                      <Text style={[styles.eventName, { color: theme.text }]} numberOfLines={2}>
+                        {ev.nombre}
+                      </Text>
+                      <Text style={[styles.eventMateria, { color: theme.icon }]} numberOfLines={1}>
+                        {ev.materiaNombre}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.eventTypeBadge,
+                        { backgroundColor: color + '20' },
+                      ]}
+                    >
+                      <Text style={[styles.eventTypeText, { color }]}>
+                        {ev.institutionalLabel || ev.tipo}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              }
+
+              return (
+                <View
+                  key={ev.id}
+                  style={[
+                    styles.eventCard,
+                    { backgroundColor: isDark ? '#1a1a1a' : '#FFFFFF' },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.eventStripe,
+                      { backgroundColor: EVENT_COLORS[ev.tipo] || '#6B7280' },
+                    ]}
+                  />
+                  <View style={styles.eventInfo}>
+                    <Text style={[styles.eventName, { color: theme.text }]} numberOfLines={1}>
+                      {ev.nombre}
+                    </Text>
+                    <Text style={[styles.eventMateria, { color: theme.icon }]} numberOfLines={1}>
+                      {ev.materiaNombre}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.eventTypeBadge,
+                      { backgroundColor: (EVENT_COLORS[ev.tipo] || '#6B7280') + '20' },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.eventTypeText,
+                        { color: EVENT_COLORS[ev.tipo] || '#6B7280' },
+                      ]}
+                    >
+                      {EVENT_BADGE_LABELS[ev.tipo] || ev.tipo}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            ))
+              );
+            })
           ) : (
             <Text style={[styles.noEventsText, { color: theme.icon }]}>
               Sin eventos este día
@@ -449,6 +496,12 @@ const styles = StyleSheet.create({
   eventStripe: {
     width: 4,
     alignSelf: 'stretch',
+  },
+  institutionalIconContainer: {
+    width: 36,
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   eventInfo: {
     flex: 1,
