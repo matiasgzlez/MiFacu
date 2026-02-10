@@ -25,6 +25,7 @@ import { useAuth } from '../src/context/AuthContext';
 import { DataRepository } from '../src/services/dataRepository';
 import { UTN_EVENT_COLORS, UTN_EVENT_LABELS } from '../src/data/calendarioUTN';
 import { UNNE_FAU_EVENT_COLORS, UNNE_FAU_EVENT_LABELS, CARRERAS_UNNE_FAU } from '../src/data/calendarioUNNE_FAU';
+import { UNNE_FADYCC_EVENT_COLORS, UNNE_FADYCC_EVENT_LABELS, CARRERAS_UNNE_FADYCC } from '../src/data/calendarioUNNE_FADyCC';
 import { saveLocalData, getLocalData } from '../src/services/storage';
 
 const EVENT_LEGEND = [
@@ -45,6 +46,12 @@ const UNNE_FAU_LEGEND = Object.entries(UNNE_FAU_EVENT_LABELS).map(([tipo, label]
   key: tipo,
 }));
 
+const UNNE_FADYCC_LEGEND = Object.entries(UNNE_FADYCC_EVENT_LABELS).map(([tipo, label]) => ({
+  color: UNNE_FADYCC_EVENT_COLORS[tipo as keyof typeof UNNE_FADYCC_EVENT_COLORS],
+  label,
+  key: tipo,
+}));
+
 function LineaDeTiempoContent() {
   const router = useRouter();
   const { colorScheme, isDark } = useTheme();
@@ -55,13 +62,16 @@ function LineaDeTiempoContent() {
   const [carreraNombre, setCarreraNombre] = React.useState<string | null>(null);
   const [showUTN, setShowUTN] = React.useState(false);
   const [showUNNE_FAU, setShowUNNE_FAU] = React.useState(false);
-  const { data, loading, refresh } = useTimelineData({ showUTN, showUNNE_FAU });
+  const [showUNNE_FADyCC, setShowUNNE_FADyCC] = React.useState(false);
+  const { data, loading, refresh } = useTimelineData({ showUTN, showUNNE_FAU, showUNNE_FADyCC });
 
   const [refreshing, setRefreshing] = React.useState(false);
 
-  // Derived: does this user's career match UNNE FAU?
+  // Derived: does this user's career match a UNNE faculty?
   const isUNNE_FAU = universidadAbrev === 'UNNE' && carreraNombre != null &&
     CARRERAS_UNNE_FAU.some((c) => carreraNombre.toLowerCase().includes(c.toLowerCase()));
+  const isUNNE_FADyCC = universidadAbrev === 'UNNE' && carreraNombre != null &&
+    CARRERAS_UNNE_FADYCC.some((c) => carreraNombre.toLowerCase().includes(c.toLowerCase()));
 
   // Load user's university/career and persisted toggle preferences
   useEffect(() => {
@@ -84,6 +94,9 @@ function LineaDeTiempoContent() {
           getLocalData('show_unne_fau_calendar').then((val) => {
             if (val === true) setShowUNNE_FAU(true);
           });
+          getLocalData('show_unne_fadycc_calendar').then((val) => {
+            if (val === true) setShowUNNE_FADyCC(true);
+          });
         }
       })
       .catch(() => {
@@ -101,6 +114,12 @@ function LineaDeTiempoContent() {
   const handleToggleUNNE_FAU = useCallback((value: boolean) => {
     setShowUNNE_FAU(value);
     saveLocalData('show_unne_fau_calendar', value);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const handleToggleUNNE_FADyCC = useCallback((value: boolean) => {
+    setShowUNNE_FADyCC(value);
+    saveLocalData('show_unne_fadycc_calendar', value);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
@@ -241,6 +260,36 @@ function LineaDeTiempoContent() {
                   {showUNNE_FAU && (
                     <View style={styles.calLegendContainer}>
                       {UNNE_FAU_LEGEND.map((item) => (
+                        <View key={item.key} style={styles.legendItem}>
+                          <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+                          <Text style={[styles.legendText, { color: theme.icon }]}>
+                            {item.label}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </>
+              )}
+
+              {/* UNNE FADyCC Toggle — only for matching UNNE careers */}
+              {isUNNE_FADyCC && (
+                <>
+                  <View style={styles.calToggleRow}>
+                    <Switch
+                      value={showUNNE_FADyCC}
+                      onValueChange={handleToggleUNNE_FADyCC}
+                      trackColor={{ false: isDark ? '#333' : '#E5E7EB', true: '#10B981' }}
+                      thumbColor="#FFFFFF"
+                      style={Platform.OS === 'ios' ? { transform: [{ scale: 0.8 }] } : undefined}
+                    />
+                    <Text style={[styles.calToggleLabel, { color: theme.text }]}>
+                      Calendario UNNE — FADyCC 2026
+                    </Text>
+                  </View>
+                  {showUNNE_FADyCC && (
+                    <View style={styles.calLegendContainer}>
+                      {UNNE_FADYCC_LEGEND.map((item) => (
                         <View key={item.key} style={styles.legendItem}>
                           <View style={[styles.legendDot, { backgroundColor: item.color }]} />
                           <Text style={[styles.legendText, { color: theme.icon }]}>

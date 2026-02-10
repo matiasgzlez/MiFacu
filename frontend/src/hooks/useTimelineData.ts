@@ -3,6 +3,7 @@ import { DataRepository } from '../services/dataRepository';
 import { useAuth } from '../context/AuthContext';
 import { CALENDARIO_UTN_2026, UTN_EVENT_COLORS } from '../data/calendarioUTN';
 import { CALENDARIO_UNNE_FAU_2026, UNNE_FAU_EVENT_COLORS, UNNE_FAU_EVENT_LABELS } from '../data/calendarioUNNE_FAU';
+import { CALENDARIO_UNNE_FADYCC_2026, UNNE_FADYCC_EVENT_COLORS, UNNE_FADYCC_EVENT_LABELS } from '../data/calendarioUNNE_FADyCC';
 
 // --- Types ---
 
@@ -88,9 +89,10 @@ function parseISODate(str: string): Date {
 
 // --- Hook ---
 
-export function useTimelineData(options?: { showUTN?: boolean; showUNNE_FAU?: boolean }) {
+export function useTimelineData(options?: { showUTN?: boolean; showUNNE_FAU?: boolean; showUNNE_FADyCC?: boolean }) {
   const showUTN = options?.showUTN ?? false;
   const showUNNE_FAU = options?.showUNNE_FAU ?? false;
+  const showUNNE_FADyCC = options?.showUNNE_FADyCC ?? false;
   const { user, isGuest } = useAuth();
   const [data, setData] = useState<TimelineData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -283,6 +285,14 @@ export function useTimelineData(options?: { showUTN?: boolean; showUNNE_FAU?: bo
         );
       }
 
+      if (showUNNE_FADyCC) {
+        addInstitutionalEvents(
+          CALENDARIO_UNNE_FADYCC_2026, 'unne_fadycc', 'UNNE — FADyCC',
+          UNNE_FADYCC_EVENT_COLORS as Record<string, string>,
+          UNNE_FADYCC_EVENT_LABELS as Record<string, string>,
+        );
+      }
+
       // monthsRange: first and last month of the semester
       const monthsRange = { start, end };
 
@@ -302,7 +312,7 @@ export function useTimelineData(options?: { showUTN?: boolean; showUNNE_FAU?: bo
     } finally {
       setLoading(false);
     }
-  }, [user?.id, isGuest, showUTN, showUNNE_FAU]);
+  }, [user?.id, isGuest, showUTN, showUNNE_FAU, showUNNE_FADyCC]);
 
   useEffect(() => {
     load();
