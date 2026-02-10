@@ -29,13 +29,16 @@ export class UsuarioMateria {
     dia?: string;
 
     @Column({ name: 'hora', type: 'int', nullable: true })
-    hora?: number;
+    hora?: number | null;
 
     @Column({ name: 'duracion', type: 'int', nullable: true, default: 2 })
-    duracion?: number;
+    duracion?: number | null;
 
     @Column({ name: 'aula', type: 'varchar', length: 50, nullable: true })
     aula?: string;
+
+    @Column({ name: 'schedules', type: 'jsonb', nullable: true, default: [] })
+    schedules?: any[];
 
     @CreateDateColumn({ name: 'created_at' })
     createdAt!: Date;

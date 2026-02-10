@@ -43,7 +43,7 @@ export class UsuarioMateriasService {
         usuarioId: string,
         materiaId: number,
         estado: EstadoMateriaUsuario = EstadoMateriaUsuario.NoCursado,
-        scheduleData?: { dia?: string; hora?: number; duracion?: number; aula?: string }
+        scheduleData?: { dia?: string; hora?: number; duracion?: number; aula?: string; schedules?: any[] }
     ): Promise<UsuarioMateria> {
         // Verificar que la materia existe
         const materia = await this.materiaRepository.findOne({
@@ -71,12 +71,29 @@ export class UsuarioMateriasService {
         });
 
         if (scheduleData) {
-            Object.assign(usuarioMateria, {
-                dia: scheduleData.dia,
-                hora: scheduleData.hora !== undefined ? Number(scheduleData.hora) : null,
-                duracion: scheduleData.duracion !== undefined ? Number(scheduleData.duracion) : 2,
-                aula: scheduleData.aula
-            });
+            if (scheduleData.schedules && Array.isArray(scheduleData.schedules)) {
+                usuarioMateria.schedules = scheduleData.schedules;
+                // For backward compatibility, sync first schedule to flat columns
+                if (scheduleData.schedules.length > 0) {
+                    const first = scheduleData.schedules[0];
+                    usuarioMateria.dia = first.dia;
+                    usuarioMateria.hora = first.hora !== undefined ? Number(first.hora) : null;
+                    usuarioMateria.duracion = first.duracion !== undefined ? Number(first.duracion) : 2;
+                    usuarioMateria.aula = first.aula;
+                }
+            } else {
+                usuarioMateria.dia = scheduleData.dia;
+                usuarioMateria.hora = scheduleData.hora !== undefined ? Number(scheduleData.hora) : null;
+                usuarioMateria.duracion = scheduleData.duracion !== undefined ? Number(scheduleData.duracion) : 2;
+                usuarioMateria.aula = scheduleData.aula;
+                // Sync flat columns to schedules array
+                usuarioMateria.schedules = [{
+                    dia: usuarioMateria.dia,
+                    hora: usuarioMateria.hora,
+                    duracion: usuarioMateria.duracion,
+                    aula: usuarioMateria.aula
+                }];
+            }
         }
 
         return await this.usuarioMateriaRepository.save(usuarioMateria);
@@ -87,7 +104,7 @@ export class UsuarioMateriasService {
         usuarioId: string,
         materiaId: number,
         estado: EstadoMateriaUsuario,
-        scheduleData?: { dia?: string; hora?: number; duracion?: number; aula?: string }
+        scheduleData?: { dia?: string; hora?: number; duracion?: number; aula?: string; schedules?: any[] }
     ): Promise<UsuarioMateria> {
         const usuarioMateria = await this.usuarioMateriaRepository.findOne({
             where: { usuarioId, materiaId }
@@ -100,10 +117,30 @@ export class UsuarioMateriasService {
         usuarioMateria.estado = estado;
 
         if (scheduleData) {
-            usuarioMateria.dia = scheduleData.dia !== undefined ? scheduleData.dia : usuarioMateria.dia;
-            usuarioMateria.hora = scheduleData.hora !== undefined && scheduleData.hora !== null ? Number(scheduleData.hora) : usuarioMateria.hora;
-            usuarioMateria.duracion = scheduleData.duracion !== undefined && scheduleData.duracion !== null ? Number(scheduleData.duracion) : usuarioMateria.duracion;
-            usuarioMateria.aula = scheduleData.aula !== undefined ? scheduleData.aula : usuarioMateria.aula;
+            if (scheduleData.schedules && Array.isArray(scheduleData.schedules)) {
+                usuarioMateria.schedules = scheduleData.schedules;
+                // Sync first to legacy columns
+                if (scheduleData.schedules.length > 0) {
+                    const first = scheduleData.schedules[0];
+                    usuarioMateria.dia = first.dia;
+                    usuarioMateria.hora = first.hora !== undefined ? Number(first.hora) : null;
+                    usuarioMateria.duracion = first.duracion !== undefined ? Number(first.duracion) : 2;
+                    usuarioMateria.aula = first.aula;
+                }
+            } else {
+                usuarioMateria.dia = scheduleData.dia !== undefined ? scheduleData.dia : usuarioMateria.dia;
+                usuarioMateria.hora = scheduleData.hora !== undefined && scheduleData.hora !== null ? Number(scheduleData.hora) : usuarioMateria.hora;
+                usuarioMateria.duracion = scheduleData.duracion !== undefined && scheduleData.duracion !== null ? Number(scheduleData.duracion) : usuarioMateria.duracion;
+                usuarioMateria.aula = scheduleData.aula !== undefined ? scheduleData.aula : usuarioMateria.aula;
+
+                // Sync to schedules array
+                usuarioMateria.schedules = [{
+                    dia: usuarioMateria.dia,
+                    hora: usuarioMateria.hora,
+                    duracion: usuarioMateria.duracion,
+                    aula: usuarioMateria.aula
+                }];
+            }
         }
 
         return await this.usuarioMateriaRepository.save(usuarioMateria);

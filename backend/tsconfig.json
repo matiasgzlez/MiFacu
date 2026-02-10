@@ -2,7 +2,9 @@
   "compilerOptions": {
     "target": "es2018",
     "module": "commonjs",
-    "lib": ["es2018"],
+    "lib": [
+      "es2018"
+    ],
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
@@ -32,6 +34,13 @@
     "allowUnreachableCode": false,
     "exactOptionalPropertyTypes": false
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts", "src/scripts"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
 }

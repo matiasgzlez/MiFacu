@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View, Dimensions, Animated, Alert } from 'react-native';
+import { StyleSheet, Text, View, Dimensions, Animated, Alert, TouchableOpacity } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../src/config/supabase';
 import { useAuth } from '../src/context/AuthContext';
@@ -94,6 +94,13 @@ export default function LoginScreen() {
             <GoogleSignInButton />
           </View>
 
+          <TouchableOpacity
+            style={styles.emailButton}
+            onPress={() => router.push('/email-login' as any)}
+          >
+            <Text style={styles.emailButtonText}>Ingresar con Email</Text>
+          </TouchableOpacity>
+
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>Iniciando sesión aceptas nuestros términos y condiciones.</Text>
           </View>
@@ -159,5 +166,17 @@ const styles = StyleSheet.create({
     color: '#48484a',
     fontSize: 12,
     fontWeight: '500',
-  }
+  },
+  emailButton: {
+    marginTop: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emailButtonText: {
+    color: '#8e8e93',
+    fontSize: 16,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
 });

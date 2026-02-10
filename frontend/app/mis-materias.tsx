@@ -68,6 +68,12 @@ interface UsuarioMateria {
   hora?: number;
   duracion?: number;
   aula?: string;
+  schedules?: Array<{
+    dia: string;
+    hora: number;
+    duracion: number;
+    aula?: string;
+  }>;
 }
 
 // --- COMPONENTE AUXILIAR PARA ANIMAR ENTRADA ---
@@ -124,6 +130,13 @@ function MisMateriasScreen() {
   const [horaInicio, setHoraInicio] = useState<string>('18:00');
   const [horaFin, setHoraFin] = useState<string>('20:00');
   const [aula, setAula] = useState<string>('');
+  const [schedules, setSchedules] = useState<Array<{
+    id: string; // ID local para manejo de UI (ej: Date.now().toString())
+    dia: string;
+    hora: number | null;
+    duracion: number;
+    aula?: string;
+  }>>([]);
 
   // Estados para DateTimePicker
   const [horaInicioDate, setHoraInicioDate] = useState<Date>(() => {
@@ -142,6 +155,48 @@ function MisMateriasScreen() {
   // Estados para búsqueda y filtros
   const [searchQuery, setSearchQuery] = useState('');
   const [filtroActivo, setFiltroActivo] = useState<'todas' | EstadoMateriaKey>('todas');
+
+  // --- LOGICA PARA MULTIPLES HORARIOS ---
+  const agregarHorario = () => {
+    if (schedules.length >= 3) return;
+    triggerHaptic();
+    setSchedules([...schedules, {
+      id: Date.now().toString(),
+      dia: 'LU',
+      hora: null,
+      duracion: 2
+    }]);
+  };
+
+  const eliminarHorario = (id: string) => {
+    if (schedules.length <= 1) return;
+    triggerHaptic();
+    setSchedules(schedules.filter(s => s.id !== id));
+  };
+
+  const actualizarHorario = (id: string, updates: any) => {
+    setSchedules(schedules.map(s => s.id === id ? { ...s, ...updates } : s));
+  };
+
+  const [activePicker, setActivePicker] = useState<{ id: string; type: 'start' | 'end' } | null>(null);
+
+  const onScheduleTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === 'android' || event.type === 'set' || event.type === 'dismissed') {
+      setActivePicker(null);
+    }
+
+    if (selectedDate && event.type !== 'dismissed' && activePicker) {
+      const hour = selectedDate.getHours();
+      const currentSchedule = schedules.find(s => s.id === activePicker.id);
+
+      if (activePicker.type === 'start') {
+        actualizarHorario(activePicker.id, { hora: hour });
+      } else if (currentSchedule && currentSchedule.hora !== null) {
+        const duracion = Math.max(1, hour - currentSchedule.hora);
+        actualizarHorario(activePicker.id, { duracion });
+      }
+    }
+  };
 
   // Filtrar materias según búsqueda y filtro
   const materiasFiltradas = useMemo(() => {
@@ -328,18 +383,13 @@ function MisMateriasScreen() {
   const seleccionarMateria = (materia: Materia) => {
     setMateriaSeleccionada(materia);
     setEstadoSeleccionado('no_cursado');
-    setDia('LU');
-    setHoraInicio('18:00');
-    setHoraFin('20:00');
-    setAula('');
+    setSchedules([{
+      id: Date.now().toString(),
+      dia: 'LU',
+      hora: null, // Default to null for "--:--" display
+      duracion: 2,
+    }]);
     setModoEdicion(false);
-
-    const initDate = new Date();
-    initDate.setHours(18, 0, 0, 0);
-    setHoraInicioDate(initDate);
-    const endDate = new Date();
-    endDate.setHours(20, 0, 0, 0);
-    setHoraFinDate(endDate);
 
     animarCerrarModal(modalSheetAnim, modalBackdropAnim, () => {
       setModalVisible(false);
@@ -354,27 +404,37 @@ function MisMateriasScreen() {
     try {
       setLoadingAction(true);
 
-      const parseTime = (timeStr: string) => {
-        const match = timeStr.match(/(\d{1,2}):(\d{2})/);
-        return match ? parseInt(match[1]) : 0;
+      const finalSchedules = estadoSeleccionado === 'cursado' ? schedules.map(s => ({
+        dia: s.dia,
+        hora: s.hora,
+        duracion: s.duracion,
+        aula: s.aula?.trim() || null
+      })) : [];
+
+      if (estadoSeleccionado === 'cursado' && finalSchedules.some(s => s.hora === null)) {
+        Alert.alert('Horario incompleto', 'Por favor, selecciona la hora de inicio para todos los horarios.');
+        setLoadingAction(false);
+        return;
+      }
+
+      const payload: any = {
+        estado: estadoSeleccionado,
+        schedules: finalSchedules
       };
 
-      const startH = parseTime(horaInicio);
-      const endH = parseTime(horaFin);
-      const dur = Math.max(1, endH - startH);
-
-      const schedule = estadoSeleccionado === 'cursado' ? {
-        dia,
-        hora: startH,
-        duracion: dur,
-        aula: aula.trim() || null
-      } : { dia: null, hora: null, duracion: null, aula: null };
+      // Compatibility for legacy backend (if needed, service handles it now)
+      if (finalSchedules.length > 0) {
+        payload.dia = finalSchedules[0].dia;
+        payload.hora = finalSchedules[0].hora;
+        payload.duracion = finalSchedules[0].duracion;
+        payload.aula = finalSchedules[0].aula;
+      }
 
       if (modoEdicion && materiaEditando) {
-        await DataRepo.updateEstadoMateria(usuarioId, materiaEditando.materiaId, estadoSeleccionado, schedule);
+        await DataRepo.updateEstadoMateria(usuarioId, materiaEditando.materiaId, estadoSeleccionado, payload);
         triggerHaptic('success');
       } else {
-        await DataRepo.addMateriaToUsuario(usuarioId, materiaSeleccionada.id, estadoSeleccionado as any, schedule);
+        await DataRepo.addMateriaToUsuario(usuarioId, materiaSeleccionada.id, estadoSeleccionado as any, payload);
         triggerHaptic('success');
       }
 
@@ -421,21 +481,28 @@ function MisMateriasScreen() {
     setMateriaSeleccionada(usuarioMateria.materia);
     setEstadoSeleccionado(usuarioMateria.estado);
     setMateriaEditando(usuarioMateria);
-    setDia(usuarioMateria.dia || 'LU');
 
-    const hIni = usuarioMateria.hora || 18;
-    const hFin = hIni + (usuarioMateria.duracion || 2);
-
-    setHoraInicio(`${hIni}:00`);
-    setHoraFin(`${hFin}:00`);
-    setAula(usuarioMateria.aula || '');
-
-    const initDate = new Date();
-    initDate.setHours(hIni, 0, 0, 0);
-    setHoraInicioDate(initDate);
-    const endDate = new Date();
-    endDate.setHours(hFin, 0, 0, 0);
-    setHoraFinDate(endDate);
+    if (usuarioMateria.schedules && usuarioMateria.schedules.length > 0) {
+      setSchedules(usuarioMateria.schedules.map((s, idx) => ({
+        ...s,
+        id: `edit-${idx}-${Date.now()}`
+      })));
+    } else if (usuarioMateria.dia && usuarioMateria.hora) {
+      setSchedules([{
+        id: 'legacy',
+        dia: usuarioMateria.dia,
+        hora: usuarioMateria.hora,
+        duracion: usuarioMateria.duracion || 2,
+        aula: usuarioMateria.aula
+      }]);
+    } else {
+      setSchedules([{
+        id: Date.now().toString(),
+        dia: 'LU',
+        hora: null,
+        duracion: 2
+      }]);
+    }
 
     setModoEdicion(true);
     setEstadoModalVisible(true);
@@ -498,13 +565,27 @@ function MisMateriasScreen() {
             </View>
           </View>
 
-          {item.estado === 'cursado' && item.dia && item.hora && (
-            <View style={[styles.scheduleBadge, { backgroundColor: theme.background }]}>
-              <Ionicons name="time-outline" size={12} color={theme.blue} />
-              <Text style={[styles.scheduleText, { color: theme.blue }]}>
-                {item.dia} {item.hora}:00 ({item.duracion}hs)
-                {item.aula ? ` • ${item.aula}` : ''}
-              </Text>
+          {item.estado === 'cursado' && (
+            <View style={styles.schedulesContainer}>
+              {item.schedules && item.schedules.length > 0 ? (
+                item.schedules.map((s, idx) => (
+                  <View key={idx} style={[styles.scheduleBadge, { backgroundColor: theme.background }]}>
+                    <Ionicons name="time-outline" size={12} color={theme.blue} />
+                    <Text style={[styles.scheduleText, { color: theme.blue }]}>
+                      {s.dia} {s.hora !== null ? `${s.hora}:00` : '--:--'} ({s.duracion}hs)
+                      {s.aula ? ` • ${s.aula}` : ''}
+                    </Text>
+                  </View>
+                ))
+              ) : item.dia && item.hora ? (
+                <View style={[styles.scheduleBadge, { backgroundColor: theme.background }]}>
+                  <Ionicons name="time-outline" size={12} color={theme.blue} />
+                  <Text style={[styles.scheduleText, { color: theme.blue }]}>
+                    {item.dia} {item.hora}:00 ({item.duracion}hs)
+                    {item.aula ? ` • ${item.aula}` : ''}
+                  </Text>
+                </View>
+              ) : null}
             </View>
           )}
         </View>
@@ -866,81 +947,105 @@ function MisMateriasScreen() {
 
                       {estadoSeleccionado === 'cursado' && (
                         <>
-                          <Text style={[styles.modalSectionHeader, { color: theme.icon, marginTop: 10 }]}>HORARIO DE CURSADA</Text>
-                          <View style={[styles.formGroup, { backgroundColor: theme.background }]}>
-                            {/* DÍA */}
-                            <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-                              <Text style={[styles.inputLabel, { color: theme.text }]}>Día</Text>
-                              <View style={styles.daysContainer}>
-                                {['LU', 'MA', 'MI', 'JU', 'VI', 'SA'].map((d) => (
-                                  <TouchableOpacity
-                                    key={d}
-                                    onPress={() => { triggerHaptic(); setDia(d); }}
-                                    style={[
-                                      styles.dayOption,
-                                      { backgroundColor: dia === d ? theme.blue : theme.backgroundSecondary }
-                                    ]}
-                                  >
-                                    <Text style={[styles.dayOptionText, { color: dia === d ? '#fff' : theme.text }]}>{d}</Text>
+                          <View style={styles.scheduleHeaderRow}>
+                            <Text style={[styles.modalSectionHeader, { color: theme.icon, marginTop: 10, marginBottom: 0 }]}>HORARIOS ({schedules.length}/3)</Text>
+                            {schedules.length < 3 && (
+                              <TouchableOpacity onPress={agregarHorario} style={styles.addScheduleBtn}>
+                                <Ionicons name="add-circle" size={24} color={theme.blue} />
+                              </TouchableOpacity>
+                            )}
+                          </View>
+
+                          {schedules.map((s, idx) => (
+                            <View key={s.id} style={[styles.formGroup, { backgroundColor: theme.background, marginBottom: 15 }]}>
+                              <View style={styles.scheduleTitleRow}>
+                                <Text style={[styles.scheduleTitle, { color: theme.icon }]}>Horario #{idx + 1}</Text>
+                                {schedules.length > 1 && (
+                                  <TouchableOpacity onPress={() => eliminarHorario(s.id)}>
+                                    <Ionicons name="close-circle-outline" size={20} color={theme.red} />
                                   </TouchableOpacity>
-                                ))}
+                                )}
+                              </View>
+
+                              {/* DÍA */}
+                              <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                                <Text style={[styles.inputLabel, { color: theme.text }]}>Día</Text>
+                                <View style={styles.daysContainer}>
+                                  {['LU', 'MA', 'MI', 'JU', 'VI', 'SA'].map((d) => (
+                                    <TouchableOpacity
+                                      key={d}
+                                      onPress={() => { triggerHaptic(); actualizarHorario(s.id, { dia: d }); }}
+                                      style={[
+                                        styles.dayOption,
+                                        { backgroundColor: s.dia === d ? theme.blue : theme.backgroundSecondary }
+                                      ]}
+                                    >
+                                      <Text style={[styles.dayOptionText, { color: s.dia === d ? '#fff' : theme.text }]}>{d}</Text>
+                                    </TouchableOpacity>
+                                  ))}
+                                </View>
+                              </View>
+
+                              {/* HORA INICIO */}
+                              <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                                <Text style={[styles.inputLabel, { color: theme.text }]}>Hora Inicio</Text>
+                                <TouchableOpacity
+                                  onPress={() => setActivePicker({ id: s.id, type: 'start' })}
+                                  style={styles.timeButton}
+                                >
+                                  <Text style={[styles.timeButtonText, { color: theme.blue }]}>
+                                    {s.hora !== null ? `${s.hora}:00` : '--:--'}
+                                  </Text>
+                                </TouchableOpacity>
+                              </View>
+
+                              {/* HORA FIN (Calculada por duración) */}
+                              <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                                <Text style={[styles.inputLabel, { color: theme.text }]}>Hora Fin</Text>
+                                <TouchableOpacity
+                                  onPress={() => setActivePicker({ id: s.id, type: 'end' })}
+                                  style={styles.timeButton}
+                                  disabled={s.hora === null}
+                                >
+                                  <Text style={[styles.timeButtonText, { color: theme.blue, opacity: s.hora === null ? 0.3 : 1 }]}>
+                                    {s.hora !== null ? `${s.hora + s.duracion}:00` : '--:--'}
+                                  </Text>
+                                </TouchableOpacity>
+                              </View>
+
+                              {/* AULA */}
+                              <View style={styles.inputRow}>
+                                <Text style={[styles.inputLabel, { color: theme.text }]}>Aula</Text>
+                                <TextInput
+                                  style={[styles.textInput, { color: theme.text }]}
+                                  value={s.aula}
+                                  onChangeText={(text) => actualizarHorario(s.id, { aula: text })}
+                                  placeholder="Ej: 304 o Zoom"
+                                  placeholderTextColor={theme.icon}
+                                />
                               </View>
                             </View>
+                          ))}
 
-                            {/* HORA INICIO */}
-                            <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-                              <Text style={[styles.inputLabel, { color: theme.text }]}>Hora Inicio</Text>
-                              <TouchableOpacity
-                                onPress={() => setShowInicioTimePicker(true)}
-                                style={styles.timeButton}
-                              >
-                                <Text style={[styles.timeButtonText, { color: theme.blue }]}>{horaInicio}</Text>
-                              </TouchableOpacity>
-                            </View>
-                            {showInicioTimePicker && (
-                              <DateTimePicker
-                                value={horaInicioDate}
-                                mode="time"
-                                is24Hour={true}
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={onHoraInicioChange}
-                                minuteInterval={30}
-                              />
-                            )}
-
-                            {/* HORA FIN */}
-                            <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-                              <Text style={[styles.inputLabel, { color: theme.text }]}>Hora Fin</Text>
-                              <TouchableOpacity
-                                onPress={() => setShowFinTimePicker(true)}
-                                style={styles.timeButton}
-                              >
-                                <Text style={[styles.timeButtonText, { color: theme.blue }]}>{horaFin}</Text>
-                              </TouchableOpacity>
-                            </View>
-                            {showFinTimePicker && (
-                              <DateTimePicker
-                                value={horaFinDate}
-                                mode="time"
-                                is24Hour={true}
-                                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                                onChange={onHoraFinChange}
-                                minuteInterval={30}
-                              />
-                            )}
-
-                            {/* AULA */}
-                            <View style={styles.inputRow}>
-                              <Text style={[styles.inputLabel, { color: theme.text }]}>Aula</Text>
-                              <TextInput
-                                style={[styles.textInput, { color: theme.text }]}
-                                value={aula}
-                                onChangeText={setAula}
-                                placeholder="Ej: 304 o Zoom"
-                                placeholderTextColor={theme.icon}
-                              />
-                            </View>
-                          </View>
+                          {activePicker && (
+                            <DateTimePicker
+                              value={(() => {
+                                const d = new Date();
+                                const s = schedules.find(sch => sch.id === activePicker.id);
+                                if (activePicker.type === 'start') {
+                                  d.setHours(s?.hora !== null ? s?.hora || 18 : 18, 0, 0, 0);
+                                } else {
+                                  d.setHours(s?.hora !== null ? (s?.hora || 18) + (s?.duracion || 2) : 20, 0, 0, 0);
+                                }
+                                return d;
+                              })()}
+                              mode="time"
+                              is24Hour={true}
+                              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                              onChange={onScheduleTimeChange}
+                              minuteInterval={30}
+                            />
+                          )}
                         </>
                       )}
                     </ScrollView>
@@ -1069,6 +1174,24 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(0,122,255,0.2)'
   },
   scheduleText: { fontSize: 11, fontWeight: '600', marginLeft: 4 },
+  schedulesContainer: { marginTop: 4, gap: 4 },
+  scheduleHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 5,
+    marginBottom: 5
+  },
+  addScheduleBtn: { padding: 5 },
+  scheduleTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4
+  },
+  scheduleTitle: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase' },
 
   headerInline: {
     position: 'absolute', top: 0, left: 0, right: 0, height: 100,
