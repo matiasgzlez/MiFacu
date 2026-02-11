@@ -1,87 +1,49 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   RefreshControl,
-  Platform,
   StatusBar,
+  TouchableOpacity,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '../../src/context/ThemeContext';
+import { useColorScheme, useTheme } from '../../src/context/ThemeContext';
 import { useAuth } from '../../src/context/AuthContext';
-import { usePomodoroTimer } from '../../src/hooks/usePomodoroTimer';
 import { useGamification } from '../../src/hooks/useGamification';
-import PomodoroTimer from '../../src/components/milo/PomodoroTimer';
-import MiloMascot, { MiloState } from '../../src/components/milo/MiloMascot';
+import { TimerScreen } from '../../src/components/milo/TimerScreen';
+import { StatsScreen } from '../../src/components/milo/StatsScreen';
+import { RankingScreen } from '../../src/components/milo/RankingScreen';
 import StatsPanel from '../../src/components/milo/StatsPanel';
 import SessionHistory from '../../src/components/milo/SessionHistory';
-import { pomodoroApi, gamificationApi } from '../../src/services/api';
+import { Colors, mifacuGold } from '../../src/constants/theme';
 import { PremiumGate } from '../../src/components/premium';
+import { LevelUpModal } from '../../src/components/milo/LevelUpModal';
+import { Level, getLevelForXP } from '../../src/constants/levels';
 
-// Duolingo-inspired colors
-const MILO_THEME = {
-  dark: {
-    background: '#131F24',
-    card: '#1A2C32',
-    text: '#FFFFFF',
-    subtext: '#AFAFAF',
-  },
-  light: {
-    background: '#F7F7F7',
-    card: '#FFFFFF',
-    text: '#4B4B4B',
-    subtext: '#777777',
-  },
-};
+type MiloTab = 'timer' | 'stats' | 'ranking';
+
+const TABS: { key: MiloTab; label: string; icon: keyof typeof Ionicons.glyphMap; iconOutline: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'timer', label: 'Timer', icon: 'timer', iconOutline: 'timer-outline' },
+  { key: 'stats', label: 'Stats', icon: 'stats-chart', iconOutline: 'stats-chart-outline' },
+  { key: 'ranking', label: 'Ranking', icon: 'trophy', iconOutline: 'trophy-outline' },
+];
 
 function MiloContent() {
   const { isDark } = useTheme();
+  const colorScheme = useColorScheme();
+  const theme = Colors[colorScheme];
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const colors = isDark ? MILO_THEME.dark : MILO_THEME.light;
 
-  const timer = usePomodoroTimer();
   const gamification = useGamification(user?.id);
+  const [activeTab, setActiveTab] = useState<MiloTab>('timer');
   const [refreshing, setRefreshing] = useState(false);
-
-  // Determine Milo's state
-  const getMiloState = (): MiloState => {
-    if (timer.sessionJustCompleted) return 'celebrating';
-    if (timer.isRunning && timer.mode === 'focus') return 'studying';
-    if (timer.isRunning && timer.mode !== 'focus') return 'sleeping';
-    return 'idle';
-  };
-
-  // Handle session completion
-  useEffect(() => {
-    if (timer.sessionJustCompleted && timer.mode === 'focus' && user?.id) {
-      const registerSession = async () => {
-        try {
-          await pomodoroApi.complete({
-            userId: user.id,
-            tipo: 'focus',
-            duracionMinutos: timer.duracionMinutos,
-            duracionRealSegundos: timer.duracionRealSegundos,
-            completada: true,
-            xpGanado: timer.duracionMinutos,
-          });
-
-          await gamificationApi.completeSession({
-            userId: user.id,
-            duracionMinutos: timer.duracionMinutos,
-            tipo: 'focus',
-          });
-
-          gamification.refresh();
-        } catch (e) {
-          console.error('Error registering session:', e);
-        }
-      };
-      registerSession();
-    }
-  }, [timer.sessionJustCompleted]);
+  const [sessionCount, setSessionCount] = useState(0);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+  const [levelUpInfo, setLevelUpInfo] = useState<Level | null>(null);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -89,54 +51,101 @@ function MiloContent() {
     setRefreshing(false);
   }, [gamification]);
 
+  const handleSessionComplete = useCallback(async () => {
+    const prevLevel = gamification.profile?.nivel ?? 1;
+    setSessionCount((prev) => prev + 1);
+    const newProfile = await gamification.refresh();
+    if (newProfile && newProfile.nivel > prevLevel) {
+      setLevelUpInfo(getLevelForXP(newProfile.xpTotal));
+    }
+  }, [gamification]);
+
+  const bgColor = isDark ? '#000000' : '#F8FAFC';
+  const accentColor = isDark ? '#F5C842' : mifacuGold;
+  const tabBarBg = isDark ? '#1C1C1E' : '#F2F2F7';
+  const tabActiveBg = isDark ? '#2C2C2E' : '#FFFFFF';
+
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+    <View style={[styles.screen, { backgroundColor: bgColor }]}>
       <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 100 },
-        ]}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <Text style={[styles.header, { color: colors.text }]}>Milo</Text>
 
-        {/* Mascot */}
-        <MiloMascot state={getMiloState()} isDark={isDark} />
+      {/* Top navigation bar */}
+      <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+        <Text style={[styles.header, { color: theme.text }]}>Milo</Text>
+        <View style={[styles.segmentedControl, { backgroundColor: tabBarBg }]}>
+          {TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[
+                  styles.segment,
+                  isActive && [styles.segmentActive, { backgroundColor: tabActiveBg }],
+                ]}
+                onPress={() => setActiveTab(tab.key)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={isActive ? tab.icon : tab.iconOutline}
+                  size={16}
+                  color={isActive ? accentColor : theme.icon}
+                />
+                <Text
+                  style={[
+                    styles.segmentText,
+                    { color: isActive ? theme.text : theme.icon },
+                    isActive && styles.segmentTextActive,
+                  ]}
+                >
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
 
-        {/* Timer */}
-        <PomodoroTimer
-          timeRemaining={timer.timeRemaining}
-          isRunning={timer.isRunning}
-          progress={timer.progress}
-          mode={timer.mode}
-          modeLabel={timer.modeLabel}
-          sessionsCompleted={timer.sessionsCompleted}
-          onStart={timer.start}
-          onPause={timer.pause}
-          onReset={timer.reset}
-          onSwitchMode={timer.switchMode}
-          isDark={isDark}
-        />
+      {/* Content */}
+      {activeTab === 'timer' && (
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: insets.bottom + 100 },
+          ]}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={scrollEnabled}
+        >
+          <TimerScreen
+            onSessionComplete={handleSessionComplete}
+            onSliderGestureActive={(active) => setScrollEnabled(!active)}
+          />
 
-        {/* Stats Panel */}
-        <StatsPanel
-          profile={gamification.profile}
-          loading={gamification.loading}
-          isDark={isDark}
-        />
+          <StatsPanel
+            profile={gamification.profile}
+            loading={gamification.loading}
+            isDark={isDark}
+          />
 
-        {/* Session History */}
-        <SessionHistory
-          userId={user?.id}
-          isDark={isDark}
-          refreshTrigger={timer.sessionsCompleted}
-        />
-      </ScrollView>
+          <SessionHistory
+            userId={user?.id}
+            isDark={isDark}
+            refreshTrigger={sessionCount}
+          />
+        </ScrollView>
+      )}
+
+      {activeTab === 'stats' && <StatsScreen />}
+
+      {activeTab === 'ranking' && <RankingScreen />}
+
+      <LevelUpModal
+        visible={levelUpInfo !== null}
+        level={levelUpInfo}
+        onClose={() => setLevelUpInfo(null)}
+      />
     </View>
   );
 }
@@ -153,13 +162,48 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
-  scrollContent: {
+  topBar: {
     paddingHorizontal: 20,
-    gap: 24,
+    paddingBottom: 12,
+    gap: 10,
   },
   header: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '800',
     textAlign: 'center',
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: 12,
+    padding: 3,
+    gap: 2,
+  },
+  segment: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+    gap: 5,
+  },
+  segmentActive: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  segmentTextActive: {
+    fontWeight: '600',
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    gap: 24,
   },
 });
