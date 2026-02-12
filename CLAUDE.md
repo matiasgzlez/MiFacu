@@ -230,3 +230,57 @@ Cada calendario tiene funciones helper `range()` y `single()` para generar event
 2. **Al guardar, enviar `{ schedules: [...] }`** — nunca enviar campos planos sueltos, el backend sincroniza automaticamente
 3. **No modificar el backend** para cambios de UI de horarios — la columna JSONB ya soporta cualquier estructura de schedule
 4. **Validar conflictos en frontend** antes de guardar — el backend no valida solapamientos
+
+## Arquitectura de Gamificacion (Milo)
+
+### Pantalla principal y componentes
+- Tab "Milo": `frontend/app/(tabs)/milo.tsx` — contiene sub-tabs Timer/Stats/Ranking
+- Timer: `frontend/src/components/milo/TimerScreen.tsx` — modo focus (circular slider) y stopwatch
+- Stats panel: `frontend/src/components/milo/StatsPanel.tsx` — XP, nivel, racha, sesiones
+- Session history: `frontend/src/components/milo/SessionHistory.tsx` — historial de sesiones
+- Level up modal: `frontend/src/components/milo/LevelUpModal.tsx` — animacion de felicitaciones al subir de nivel
+- Circular slider: `frontend/src/components/milo/CircularSlider.tsx` — selector de duracion con drag
+- Stats screen: `frontend/src/components/milo/StatsScreen.tsx` — estadisticas detalladas
+- Ranking screen: `frontend/src/components/milo/RankingScreen.tsx` — ranking de usuarios
+
+### Sistema de niveles
+- **51 niveles** con tematica universitaria argentina (de "Ingresante" a "El Graduado Mitico")
+- Tabla de niveles: `frontend/src/constants/levels.ts` — exporta `LEVELS`, `getLevelForXP()`, `getNextLevel()`, `getXPProgress()`, `calculateSessionXP()`, `XP_RULES`
+- Backend replica la misma tabla: `backend/src/services/gamification.service.ts` — `LEVEL_XP_THRESHOLDS[]`
+- **CRITICO**: Ambas tablas (frontend y backend) DEBEN estar sincronizadas. Si se agrega/modifica un nivel en `levels.ts`, actualizar tambien `LEVEL_XP_THRESHOLDS` en el backend
+
+### XP Rules
+- 1 XP por minuto de estudio (modo focus)
+- +20 XP bonus por dia de racha (STREAK_DAILY_BONUS)
+- +5 XP bonus por sesion larga >= 25 min (LONG_SESSION_BONUS)
+- Backend agrega: +10 XP al llegar a racha de 3 dias, +25 XP al llegar a racha de 7 dias
+
+### Flujo de sesion completada
+1. `TimerScreen.registerSession()` llama `pomodoroApi.complete()` luego `gamificationApi.completeSession()`
+2. Backend `completeSession()` calcula XP, actualiza racha, recalcula nivel, devuelve `{ profile, xpGanado, subiDeNivel, rachaActualizada }`
+3. `TimerScreen` pasa `subiDeNivel` al callback `onSessionComplete`
+4. `milo.tsx handleSessionComplete()` recibe `subiDeNivel`, llama `gamification.refresh()`, si subio muestra `LevelUpModal`
+5. `LevelUpModal` muestra nivel nuevo con animacion spring + haptic feedback
+
+### Modelo de datos
+- Tabla: `user_gamification` (userId PK, xpTotal, nivel, rachaActual, rachaMaxima, ultimoDiaActivo, sesionesTotales, minutosTotales)
+- Entity: `backend/src/models/user-gamification.model.ts`
+- Hook frontend: `frontend/src/hooks/useGamification.ts` — fetchea perfil, mapea snake_case a camelCase
+
+### Reglas para futuras modificaciones
+1. **Nunca usar formulas matematicas** para calcular niveles — siempre usar la tabla LEVELS/LEVEL_XP_THRESHOLDS
+2. **Mantener sincronizadas** las tablas de frontend y backend al modificar niveles
+3. **El campo `subiDeNivel`** del backend es la fuente de verdad para mostrar el modal de level-up
+4. **No hacer fetch manual** del perfil de gamificacion — usar `useGamification(userId)` hook
+
+## Dark Mode / Theming
+
+### Reglas obligatorias para todas las pantallas y componentes
+1. Importar `useTheme` y/o `useColorScheme` de `../../context/ThemeContext`
+2. Obtener colores via `const theme = Colors[colorScheme]`
+3. **Nunca usar colores hardcodeados** como `#fff`, `#000`, `#333`, `#666`, `#f5f5f5` — usar `theme.text`, `theme.background`, `theme.backgroundSecondary`, `theme.icon`, `theme.separator`
+4. `StatusBar barStyle` debe ser condicional: `isDark ? 'light-content' : 'dark-content'`
+5. Colores semanticos disponibles: `theme.tint`, `theme.blue`, `theme.orange`, `theme.green`, `theme.red`, `theme.slate`, `theme.purple`
+6. Para grises intermedios usar `theme.icon` (gris medio) o `theme.separator` (gris claro/oscuro)
+7. Backgrounds: `theme.background` (principal), `theme.backgroundSecondary` (cards/sections)
+8. Si se necesita un color custom con opacidad, derivarlo del theme (ej. `${theme.tint}20` para tint al 12%)
