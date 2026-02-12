@@ -1,5 +1,4 @@
 import type { ViewStyle } from 'react-native';
-import type { SkImage } from '@shopify/react-native-skia';
 
 export interface IRippleBase {
     width: number;
@@ -19,7 +18,7 @@ export interface IRippleSkiaEffect extends IRippleBase {
 }
 
 export interface IRippleImage extends IRippleBase {
-    source: string | SkImage;
+    source: string | any;
     fit?: 'cover' | 'contain' | 'fill' | 'none' | 'scaleDown';
 }
 

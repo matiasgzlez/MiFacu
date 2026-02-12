@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   Image,
   StatusBar,
@@ -23,6 +23,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../../src/config/supabase';
 import { Colors, mifacuNavy, mifacuGold } from '../../src/constants/theme';
@@ -49,7 +50,7 @@ import { StaggeredText } from '../../src/components/ui/animated-text';
 import { CinematicCarousel } from '../../src/components/ui/cinematic-carousel';
 
 // Types
-import type { ThemeColors } from '../../src/types';
+import type { ThemeColors, Recordatorio } from '../../src/types';
 import type { MateriaUsuario } from '../../src/hooks/useHomeData';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -126,6 +127,18 @@ const ShortcutItem = React.memo(({
     </Animated.View>
   );
 });
+
+function formatDateLabel(fechaStr: string): string {
+  const fecha = new Date(fechaStr + 'T00:00:00');
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+  const diff = Math.round((fecha.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+  if (diff === 0) return 'Hoy';
+  if (diff === 1) return 'Mañana';
+  if (diff === -1) return 'Ayer';
+  const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+  return `${fecha.getDate()} ${meses[fecha.getMonth()]}`;
+}
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -213,6 +226,9 @@ export default function HomeScreen() {
   const [newTask, setNewTask] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [addingTask, setAddingTask] = useState(false);
+  const [newTaskDate, setNewTaskDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [taskSortOrder, setTaskSortOrder] = useState<'nearest' | 'farthest'>('nearest');
 
   // Animations
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -309,7 +325,7 @@ export default function HomeScreen() {
       id: tempId,
       nombre: taskText,
       descripcion: taskDescription,
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: newTaskDate,
       hora: `${new Date().getHours().toString().padStart(2, '0')}:${new Date().getMinutes().toString().padStart(2, '0')}`,
       tipo: 'quick_task',
     };
@@ -317,6 +333,8 @@ export default function HomeScreen() {
     setTasks((prev) => [...prev, optimisticTask as any]);
     setNewTask('');
     setNewTaskDescription('');
+    setNewTaskDate(new Date().toISOString().split('T')[0]);
+    setShowDatePicker(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
@@ -324,7 +342,7 @@ export default function HomeScreen() {
       const created = await DataRepository.createRecordatorio(false, {
         nombre: taskText,
         descripcion: taskDescription,
-        fecha: optimisticTask.fecha,
+        fecha: newTaskDate,
         hora: optimisticTask.hora,
         tipo: 'quick_task',
       });
@@ -337,7 +355,7 @@ export default function HomeScreen() {
     } finally {
       setAddingTask(false);
     }
-  }, [newTask, newTaskDescription, setTasks, addingTask]);
+  }, [newTask, newTaskDescription, newTaskDate, setTasks, addingTask]);
 
   const handleCompleteTask = useCallback(
     async (id: number) => {
@@ -352,6 +370,33 @@ export default function HomeScreen() {
     [setTasks, loadData]
   );
 
+  const handleDateChange = useCallback((_: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') setShowDatePicker(false);
+    if (selectedDate) {
+      setNewTaskDate(selectedDate.toISOString().split('T')[0]);
+    }
+  }, []);
+
+  const toggleTaskSort = useCallback(() => {
+    setTaskSortOrder((prev) => (prev === 'nearest' ? 'farthest' : 'nearest'));
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  const sortedTasks = useMemo(() => {
+    return [...tasks].sort((a, b) => {
+      if (!a.fecha && !b.fecha) return 0;
+      if (!a.fecha) return 1;
+      if (!b.fecha) return -1;
+      const dateA = new Date(a.fecha).getTime();
+      const dateB = new Date(b.fecha).getTime();
+      return taskSortOrder === 'nearest' ? dateA - dateB : dateB - dateA;
+    });
+  }, [tasks, taskSortOrder]);
+
+  const handleUpdateTask = useCallback((id: number, data: Partial<Recordatorio>) => {
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...data } : t)));
+  }, [setTasks]);
+
   // Quick access handlers
   const openEditModal = useCallback(() => {
     setTempShortcuts([...selectedShortcuts]);
@@ -363,15 +408,7 @@ export default function HomeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setTempShortcuts((prev) => {
       if (prev.includes(id)) {
-        if (prev.length <= 2) {
-          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-          return prev;
-        }
         return prev.filter((s) => s !== id);
-      }
-      if (prev.length >= 5) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-        return prev;
       }
       return [...prev, id];
     });
@@ -479,8 +516,8 @@ export default function HomeScreen() {
   return (
     <KeyboardAvoidingView
       style={[styles.container, { backgroundColor }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 85 : 0}
     >
       <StatusBar
         barStyle="light-content"
@@ -756,22 +793,46 @@ export default function HomeScreen() {
                     </Text>
                   </View>
                 )}
+                <View style={{ flex: 1 }} />
+                {tasks.length > 1 && (
+                  <Pressable
+                    onPress={toggleTaskSort}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={({ pressed }) => [
+                      styles.sortButton,
+                      {
+                        backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+                        opacity: pressed ? 0.7 : 1,
+                      },
+                    ]}
+                  >
+                    <Ionicons
+                      name={taskSortOrder === 'nearest' ? 'arrow-up' : 'arrow-down'}
+                      size={14}
+                      color={theme.icon}
+                    />
+                    <Text style={[styles.sortButtonText, { color: theme.icon }]}>
+                      {taskSortOrder === 'nearest' ? 'Próximas' : 'Lejanas'}
+                    </Text>
+                  </Pressable>
+                )}
               </View>
 
               <View style={[styles.tasksContainer, { backgroundColor: cardColor, borderColor: isDarkMode ? '#38383A' : '#E2E8F0' }]}>
-                {tasks.length > 0 ? (
-                  tasks.map((task, index) => (
+                {sortedTasks.length > 0 ? (
+                  sortedTasks.map((task, index) => (
                     <AnimatedItem key={task.id} index={index} delay={40}>
                       <View>
                         <SwipeableTask onDelete={() => handleCompleteTask(task.id)} theme={theme}>
                           <TaskItem
                             task={task}
                             onDelete={() => handleCompleteTask(task.id)}
+                            onUpdate={handleUpdateTask}
                             theme={theme}
                             separatorColor={separatorColor}
                           />
                         </SwipeableTask>
-                        {index < tasks.length - 1 && (
+                        {index < sortedTasks.length - 1 && (
                           <View style={[styles.taskSeparator, { backgroundColor: separatorColor }]} />
                         )}
                       </View>
@@ -800,7 +861,7 @@ export default function HomeScreen() {
                       onFocus={() => {
                         setTimeout(() => {
                           (scrollViewRef.current as any)?.scrollToEnd?.({ animated: true });
-                        }, 150);
+                        }, 350);
                       }}
                       onSubmitEditing={() => {
                         if (newTask.trim() && !newTaskDescription) {
@@ -822,24 +883,56 @@ export default function HomeScreen() {
                         blurOnSubmit={false}
                       />
                     )}
+                    {newTask.trim().length > 0 && (
+                      <View style={styles.taskInputActionsRow}>
+                        <Pressable
+                          onPress={() => setShowDatePicker(!showDatePicker)}
+                          style={({ pressed }) => [
+                            styles.dateChip,
+                            {
+                              backgroundColor: isDarkMode ? 'rgba(99,102,241,0.15)' : '#EEF2FF',
+                              opacity: pressed ? 0.7 : 1,
+                            },
+                          ]}
+                        >
+                          <Ionicons
+                            name="calendar-outline"
+                            size={13}
+                            color={isDarkMode ? '#818CF8' : '#6366F1'}
+                          />
+                          <Text style={[styles.dateChipText, { color: isDarkMode ? '#818CF8' : '#6366F1' }]}>
+                            {formatDateLabel(newTaskDate)}
+                          </Text>
+                        </Pressable>
+                        <Pressable
+                          onPress={handleAddTask}
+                          disabled={addingTask || !newTask.trim()}
+                          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                          style={({ pressed }) => [
+                            styles.addTaskButton,
+                            {
+                              backgroundColor: isDarkMode ? theme.tint : mifacuNavy,
+                              opacity: pressed ? 0.7 : 1,
+                              transform: [{ scale: pressed ? 0.9 : 1 }],
+                            },
+                          ]}
+                        >
+                          <Ionicons name="arrow-up" size={16} color="white" />
+                        </Pressable>
+                      </View>
+                    )}
+                    {showDatePicker && newTask.trim().length > 0 && (
+                      <DateTimePicker
+                        value={new Date(newTaskDate + 'T00:00:00')}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                        onChange={handleDateChange}
+                        minimumDate={new Date()}
+                        locale="es-AR"
+                        style={Platform.OS === 'ios' ? { marginTop: 4, alignSelf: 'flex-start' } : undefined}
+                      />
+                    )}
                   </View>
-                  {newTask.trim().length > 0 && (
-                    <Pressable
-                      onPress={handleAddTask}
-                      disabled={addingTask || !newTask.trim()}
-                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                      style={({ pressed }) => [
-                        styles.addTaskButton,
-                        {
-                          backgroundColor: isDarkMode ? theme.tint : mifacuNavy,
-                          opacity: pressed ? 0.7 : 1,
-                          transform: [{ scale: pressed ? 0.9 : 1 }],
-                        },
-                      ]}
-                    >
-                      <Ionicons name="arrow-up" size={16} color="white" />
-                    </Pressable>
-                  )}
                 </View>
               </View>
             </View>
@@ -895,7 +988,7 @@ export default function HomeScreen() {
 
             <ScrollView style={styles.modalContent} showsVerticalScrollIndicator={false}>
               <Text style={[styles.modalDescription, { color: theme.icon }]}>
-                Selecciona los accesos que quieres ver en tu inicio. Puedes elegir entre 2 y 5.
+                Selecciona los accesos que quieres ver en tu inicio.
               </Text>
 
               {/* Options List */}
@@ -938,7 +1031,7 @@ export default function HomeScreen() {
               </View>
 
               <Text style={[styles.modalFooterText, { color: theme.icon }]}>
-                {tempShortcuts.length} de 5 seleccionados
+                {tempShortcuts.length} de {AVAILABLE_SHORTCUTS.length} seleccionados
               </Text>
             </ScrollView>
           </SafeAreaView>
@@ -1265,13 +1358,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     marginTop: 2,
   },
+  taskInputActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  dateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  dateChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
   addTaskButton: {
     width: 30,
     height: 30,
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  sortButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 
   // Modal

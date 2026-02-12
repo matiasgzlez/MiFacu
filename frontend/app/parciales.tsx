@@ -29,6 +29,8 @@ import { DataRepository } from '../src/services/dataRepository';
 import { useAuth } from '../src/context/AuthContext';
 import { Colors } from '../src/constants/theme';
 import { materiasApi } from '../src/services/api';
+import { useRecordatorios, useDeleteRecordatorio } from '../src/hooks/useQueries';
+import { useRefetchOnFocus } from '../src/hooks/useRefetchOnFocus';
 
 const { width, height } = Dimensions.get('window');
 const CARD_MARGIN = 20;
@@ -193,11 +195,22 @@ const DeletableCard = ({
   );
 };
 
-const EventCardContent = ({ evento, onDeleteTrigger }: { evento: any, onDeleteTrigger?: () => void }) => {
+const EventCardContent = ({
+  evento,
+  onDeleteTrigger,
+  onEdit,
+  onCalendarPress,
+}: {
+  evento: any;
+  onDeleteTrigger?: () => void;
+  onEdit?: () => void;
+  onCalendarPress?: () => void;
+}) => {
   return (
     <TouchableOpacity
       activeOpacity={0.9}
       style={[styles.card, { backgroundColor: evento.color, marginBottom: 0 }]}
+      onPress={onEdit}
       onLongPress={onDeleteTrigger}
     >
       <View style={styles.cardHeader}>
@@ -207,7 +220,12 @@ const EventCardContent = ({ evento, onDeleteTrigger }: { evento: any, onDeleteTr
           </View>
           <Text style={[styles.cardCountdown, { marginLeft: 10 }]}>{getTiempoRestante(evento.fecha)}</Text>
         </View>
-        <Ionicons name="calendar-outline" size={16} color="rgba(255,255,255,0.7)" />
+        <TouchableOpacity
+          onPress={onCalendarPress}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="calendar-outline" size={18} color="rgba(255,255,255,0.9)" />
+        </TouchableOpacity>
       </View>
 
       <Text style={styles.cardTitle} numberOfLines={2}>{evento.titulo}</Text>
@@ -228,6 +246,13 @@ const EventCardContent = ({ evento, onDeleteTrigger }: { evento: any, onDeleteTr
             <Ionicons name="notifications-outline" size={16} color="rgba(255,255,255,0.6)" style={{ marginRight: 15 }} />
           )}
           <TouchableOpacity
+            onPress={onEdit}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{ marginRight: 15 }}
+          >
+            <Ionicons name="pencil-outline" size={17} color="rgba(255,255,255,0.9)" />
+          </TouchableOpacity>
+          <TouchableOpacity
             onPress={onDeleteTrigger}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
@@ -245,12 +270,38 @@ export default function ParcialesScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
 
-  const [eventos, setEventos] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const recordatoriosQuery = useRecordatorios();
+  useRefetchOnFocus(recordatoriosQuery);
+  const deleteRecordatorioMutation = useDeleteRecordatorio();
+
+  // Derive eventos from query data
+  const eventos = React.useMemo(() => {
+    const data = recordatoriosQuery.data;
+    if (!Array.isArray(data)) return [];
+    const filtrados = data.filter((item: any) =>
+      item.tipo === 'Parcial' || item.tipo === 'Entrega' || item.tipo === 'PARCIAL' || item.tipo === 'ENTREGA'
+    );
+    return filtrados.map((item: any) => ({
+      id: item.id,
+      titulo: item.nombre || item.titulo,
+      tipo: item.tipo === 'PARCIAL' ? 'Parcial' : (item.tipo === 'ENTREGA' ? 'Entrega' : item.tipo),
+      fechaRaw: item.fecha,
+      fecha: formatearFecha(item.fecha),
+      hora: item.hora ? item.hora.toString().slice(0, 5) : "09:00",
+      color: item.color || PALETA_COLORES[0],
+      notificar: item.notificar,
+      recordatorioAnticipacion: item.recordatorioAnticipacion
+    })).sort((a: any, b: any) => new Date(a.fechaRaw).getTime() - new Date(b.fechaRaw).getTime());
+  }, [recordatoriosQuery.data]);
+
+  const loading = !recordatoriosQuery.data && recordatoriosQuery.isLoading;
 
   // Lista de materias disponibles
   const [materias, setMaterias] = useState<{ id: number; nombre: string }[]>([]);
   const [showMateriaPicker, setShowMateriaPicker] = useState(false);
+
+  // Edit mode
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   // Estados para el Sheet (Modal Animado)
   const [modalVisible, setModalVisible] = useState(false);
@@ -280,38 +331,6 @@ export default function ParcialesScreen() {
   const sheetAnim = useRef(new RNAnimated.Value(height)).current;
   const overlayOpacity = useRef(new RNAnimated.Value(0)).current;
 
-  // Cargar datos
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const data = await DataRepository.getRecordatorios();
-
-      // Filtrar solo Parciales y Entregas
-      const filtrados = data.filter((item: any) =>
-        item.tipo === 'Parcial' || item.tipo === 'Entrega' || item.tipo === 'PARCIAL' || item.tipo === 'ENTREGA'
-      );
-
-      // Mapear y Ordenar
-      const mapped = filtrados.map((item: any) => ({
-        id: item.id,
-        titulo: item.nombre || item.titulo,
-        tipo: item.tipo === 'PARCIAL' ? 'Parcial' : (item.tipo === 'ENTREGA' ? 'Entrega' : item.tipo),
-        fechaRaw: item.fecha,
-        fecha: formatearFecha(item.fecha),
-        hora: item.hora ? item.hora.toString().slice(0, 5) : "09:00",
-        color: item.color || PALETA_COLORES[0],
-        notificar: item.notificar, // Asumiendo que la DB soporta esto, si no mockearlo o ajustarlo
-        recordatorioAnticipacion: item.recordatorioAnticipacion
-      })).sort((a: any, b: any) => new Date(a.fechaRaw).getTime() - new Date(b.fechaRaw).getTime());
-
-      setEventos(mapped);
-    } catch (e) {
-      console.error("Error cargando parciales:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const formatearFecha = (fechaISO: string | Date) => {
     if (!fechaISO) return '--/--';
     const date = new Date(fechaISO);
@@ -331,9 +350,8 @@ export default function ParcialesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
       loadMaterias();
-    }, [isGuest, (user?.user_metadata as any)?.carreraId])
+    }, [(user?.user_metadata as any)?.carreraId])
   );
 
   const openSheet = () => {
@@ -344,11 +362,31 @@ export default function ParcialesScreen() {
     ]).start();
   };
 
+  const openEditSheet = (evento: any) => {
+    setEditingId(evento.id);
+    setNuevoTitulo(evento.titulo);
+    setNuevoTipo(evento.tipo);
+    setNuevoColor(evento.color || PALETA_COLORES[0]);
+    if (evento.fechaRaw) {
+      setSelectedDate(new Date(evento.fechaRaw));
+    }
+    if (evento.hora) {
+      const [h, m] = evento.hora.split(':').map(Number);
+      const timeDate = new Date();
+      timeDate.setHours(h, m, 0, 0);
+      setSelectedTime(timeDate);
+    }
+    openSheet();
+  };
+
   const closeSheet = () => {
     RNAnimated.parallel([
       RNAnimated.timing(overlayOpacity, { toValue: 0, duration: 300, useNativeDriver: true }),
       RNAnimated.timing(sheetAnim, { toValue: height, duration: 400, useNativeDriver: false }),
-    ]).start(() => setModalVisible(false));
+    ]).start(() => {
+      setModalVisible(false);
+      setEditingId(null);
+    });
     Keyboard.dismiss();
   };
 
@@ -367,14 +405,11 @@ export default function ParcialesScreen() {
 
   const executeDelete = async (id: any) => {
     try {
-      await DataRepository.deleteRecordatorio(isGuest, id);
+      await deleteRecordatorioMutation.mutateAsync(id);
 
-      // Cancelar notificación local (si se hubiera guardado el ID de notif, aunque aquí usamos el ID del evento)
       try {
         await Notifications.cancelScheduledNotificationAsync(id.toString());
       } catch (e) { }
-
-      loadData();
     } catch (e) { Alert.alert("Error al borrar"); }
   };
 
@@ -418,7 +453,7 @@ export default function ParcialesScreen() {
       const isoDate = `${selectedDate.getFullYear()}-${m}-${d}`;
       const horaStr = selectedTime ? formatTimeDisplay(selectedTime) : "09:00";
 
-      const nuevoEvento: any = {
+      const eventoData: any = {
         nombre: nuevoTitulo,
         tipo: nuevoTipo,
         fecha: isoDate,
@@ -426,19 +461,33 @@ export default function ParcialesScreen() {
         color: nuevoColor,
       };
 
-      // Solo agregar materiaId si se seleccionó una materia
       if (selectedMateriaId) {
-        nuevoEvento.materiaId = selectedMateriaId;
-        nuevoEvento.materiaNombre = selectedMateriaNombre;
+        eventoData.materiaId = selectedMateriaId;
+        eventoData.materiaNombre = selectedMateriaNombre;
       }
 
-      const result = await DataRepository.createRecordatorio(isGuest, nuevoEvento);
-      const newId = result?.id || result?.data?.id;
+      let targetId: number | null = null;
+
+      if (editingId) {
+        // Update existing
+        await DataRepository.updateRecordatorio(editingId, eventoData);
+        targetId = editingId;
+        // Cancel old notification and reschedule
+        try { await Notifications.cancelScheduledNotificationAsync(editingId.toString()); } catch (_) {}
+        // Invalidate cache
+        recordatoriosQuery.refetch();
+      } else {
+        // Create new
+        const result = await DataRepository.createRecordatorio(isGuest, eventoData);
+        targetId = result?.id || result?.data?.id;
+        // Invalidate cache
+        recordatoriosQuery.refetch();
+      }
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       // Programar notificación local if enabled
-      if (notificar && newId) {
+      if (notificar && targetId) {
         try {
           const fechaEvento = new Date(selectedDate);
           const [h, min] = horaStr.split(':').map(Number);
@@ -452,14 +501,14 @@ export default function ParcialesScreen() {
             body: anticipacion === 0
               ? `¡${nuevoTitulo} es ahora!`
               : `Recordatorio: ${nuevoTitulo} es ${anticipacion >= 1440 ? 'mañana' : 'pronto'}. ¡Prepárate!`,
-            data: { id: newId },
+            data: { id: targetId },
             sound: true as const,
             ...(Platform.OS === 'android' && { channelId: 'examenes' }),
           };
 
           if (scheduledDate <= ahora) {
             await Notifications.scheduleNotificationAsync({
-              identifier: newId.toString(),
+              identifier: targetId.toString(),
               content: notifContent,
               trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
@@ -468,7 +517,7 @@ export default function ParcialesScreen() {
             });
           } else {
             await Notifications.scheduleNotificationAsync({
-              identifier: newId.toString(),
+              identifier: targetId.toString(),
               content: notifContent,
               trigger: {
                 type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -483,7 +532,6 @@ export default function ParcialesScreen() {
       }
 
       closeSheet();
-      loadData();
 
       // Reset inputs
       setNuevoTitulo(''); setSelectedDate(null); setShowDatePicker(false);
@@ -491,7 +539,7 @@ export default function ParcialesScreen() {
       setNuevoColor(PALETA_COLORES[0]); setNotificar(true);
       setSelectedMateriaId(null); setSelectedMateriaNombre('');
     } catch (error) {
-      Alert.alert("Error", "No se pudo crear el evento.");
+      Alert.alert("Error", editingId ? "No se pudo actualizar el evento." : "No se pudo crear el evento.");
     }
   };
 
@@ -505,7 +553,7 @@ export default function ParcialesScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.closeButton}>
             <Text style={[styles.closeText, { color: theme.tint }]}>Volver</Text>
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>Parciales</Text>
+          <Text style={[styles.headerTitle, { color: theme.text }]}>Parciales/Entregas</Text>
           <TouchableOpacity onPress={openSheet} style={styles.addButtonHead}>
             <Ionicons name="add-circle" size={28} color={theme.tint} />
           </TouchableOpacity>
@@ -526,7 +574,19 @@ export default function ParcialesScreen() {
               onDelete={() => executeDelete(evento.id)}
               theme={theme}
             >
-              <EventCardContent evento={evento} />
+              <EventCardContent
+                evento={evento}
+                onEdit={() => openEditSheet(evento)}
+                onCalendarPress={() => {
+                  const dateKey = evento.fechaRaw
+                    ? new Date(evento.fechaRaw).toISOString().split('T')[0]
+                    : undefined;
+                  router.push({
+                    pathname: '/linea-de-tiempo',
+                    params: dateKey ? { initialDate: dateKey } : {},
+                  });
+                }}
+              />
             </DeletableCard>
           ))}
 
@@ -534,7 +594,7 @@ export default function ParcialesScreen() {
             <View style={styles.emptyContainer}>
               <Ionicons name="sparkles-outline" size={60} color={theme.separator} />
               <Text style={[styles.emptyText, { color: theme.icon }]}>Todo despejado</Text>
-              <Text style={[styles.emptySubtext, { color: theme.icon }]}>No tenés parciales ni entregas pendientes.</Text>
+              <Text style={[styles.emptySubtext, { color: theme.icon }]}>No tenés parciales ni entregas pendientes</Text>
               <TouchableOpacity onPress={openSheet} style={[styles.emptyBtn, { backgroundColor: theme.tint }]}>
                 <Text style={styles.emptyBtnText}>Agregar Evento</Text>
               </TouchableOpacity>
@@ -577,7 +637,7 @@ export default function ParcialesScreen() {
                 contentContainerStyle={{ paddingBottom: 20 }}
               >
                 <View style={styles.sheetHeader}>
-                  <Text style={[styles.sheetTitle, { color: theme.text }]}>Nuevo Evento</Text>
+                  <Text style={[styles.sheetTitle, { color: theme.text }]}>{editingId ? 'Editar Evento' : 'Nuevo Evento'}</Text>
                   <TouchableOpacity onPress={closeSheet}>
                     <Ionicons name="close-circle" size={28} color={theme.icon} />
                   </TouchableOpacity>
@@ -768,7 +828,7 @@ export default function ParcialesScreen() {
                   </View>
 
                   <TouchableOpacity style={[styles.btnConfirm, { backgroundColor: theme.tint }]} onPress={handleAgregar}>
-                    <Text style={styles.btnTextConfirm}>Guardar Evento</Text>
+                    <Text style={styles.btnTextConfirm}>{editingId ? 'Actualizar Evento' : 'Guardar Evento'}</Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>

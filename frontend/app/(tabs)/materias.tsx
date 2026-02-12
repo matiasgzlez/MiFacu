@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
@@ -30,12 +30,15 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 }
 
 export type EstadoMateriaKey = 'no_cursado' | 'cursado' | 'regular' | 'aprobado';
+import type { Schedule } from '../../src/types/models';
 import { materiasApi as api } from '../../src/services/api';
 import { Colors } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
 import { useSaveNotification } from '../../src/context/SaveNotificationContext';
 import SpinButton from '../../src/components/ui/spin-button';
+import { useMisMaterias, useMateriasDisponibles, useAddMateria, useUpdateEstadoMateria, useRemoveMateria } from '../../src/hooks/useQueries';
+import { useRefetchOnFocus } from '../../src/hooks/useRefetchOnFocus';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -65,6 +68,7 @@ interface UsuarioMateria {
   hora?: number;
   duracion?: number;
   aula?: string;
+  schedules?: Schedule[];
 }
 
 const AnimatedItem = ({ children, index }: { children: React.ReactNode, index?: number }) => {
@@ -93,10 +97,30 @@ export default function MateriasScreen() {
 
   const { user, isGuest } = useAuth();
   const { showNotification } = useSaveNotification();
-  const [usuarioId, setUsuarioId] = useState<string>('');
-  const [misMaterias, setMisMaterias] = useState<UsuarioMateria[]>([]);
-  const [materiasDisponibles, setMateriasDisponibles] = useState<Materia[]>([]);
-  const [loading, setLoading] = useState(true);
+  const usuarioId = user?.id || (isGuest ? 'guest' : '');
+
+  const misMateriasQuery = useMisMaterias();
+  const materiasDisponiblesQuery = useMateriasDisponibles();
+  useRefetchOnFocus(misMateriasQuery);
+  useRefetchOnFocus(materiasDisponiblesQuery);
+
+  const addMateriaMutation = useAddMateria();
+  const updateEstadoMateriaMutation = useUpdateEstadoMateria();
+  const removeMateriaMutation = useRemoveMateria();
+
+  const misMaterias = React.useMemo(() => {
+    const data = misMateriasQuery.data as UsuarioMateria[] | undefined;
+    if (!data) return [];
+    return [...data].sort((a: any, b: any) => {
+      if (a.estado === 'cursado' && b.estado !== 'cursado') return -1;
+      if (a.estado !== 'cursado' && b.estado === 'cursado') return 1;
+      return (a.materia.numero || 0) - (b.materia.numero || 0);
+    });
+  }, [misMateriasQuery.data]);
+
+  const materiasDisponibles = (materiasDisponiblesQuery.data || []) as Materia[];
+  const loading = (!misMateriasQuery.data && misMateriasQuery.isLoading);
+
   const [modalVisible, setModalVisible] = useState(false);
   const [loadingAction, setLoadingAction] = useState(false);
   const [estadoModalVisible, setEstadoModalVisible] = useState(false);
@@ -105,10 +129,10 @@ export default function MateriasScreen() {
   const [materiaEditando, setMateriaEditando] = useState<UsuarioMateria | null>(null);
   const [modoEdicion, setModoEdicion] = useState(false);
 
-  const [dia, setDia] = useState<string>('LU');
-  const [horaInicio, setHoraInicio] = useState<string>('18:00');
-  const [horaFin, setHoraFin] = useState<string>('20:00');
-  const [aula, setAula] = useState<string>('');
+  const [schedules, setSchedules] = useState<Schedule[]>([
+    { dia: 'LU', hora: 18, duracion: 2, aula: '' }
+  ]);
+  const [activeScheduleIndex, setActiveScheduleIndex] = useState(0);
 
   const [horaInicioDate, setHoraInicioDate] = useState<Date>(() => {
     const d = new Date(); d.setHours(18, 0, 0, 0); return d;
@@ -186,50 +210,71 @@ export default function MateriasScreen() {
     });
   };
 
-  useFocusEffect(
-    useCallback(() => { cargarDatos(); }, [])
-  );
+  const refreshData = useCallback(async () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    await Promise.all([
+      misMateriasQuery.refetch(),
+      materiasDisponiblesQuery.refetch(),
+    ]);
+  }, [misMateriasQuery.refetch, materiasDisponiblesQuery.refetch]);
 
-  const cargarDatos = async (showLoading = true) => {
-    try {
-      if (showLoading) setLoading(true);
-      const userId = user?.id;
-      if (!userId && !isGuest) {
-        Alert.alert('Error', 'No se encontró sesión activa');
-        router.replace('/');
-        return;
+  // ─── Schedule helpers ───
+  const MAX_SCHEDULES = 3;
+
+  const addScheduleBlock = () => {
+    if (schedules.length >= MAX_SCHEDULES) return;
+    triggerHaptic();
+    setSchedules(prev => [...prev, { dia: 'LU', hora: 18, duracion: 2, aula: '' }]);
+    setActiveScheduleIndex(schedules.length);
+  };
+
+  const removeScheduleBlock = (index: number) => {
+    if (schedules.length <= 1) return;
+    triggerHaptic();
+    setSchedules(prev => prev.filter((_, i) => i !== index));
+    setActiveScheduleIndex(prev => Math.min(prev, schedules.length - 2));
+  };
+
+  const updateScheduleField = (index: number, field: keyof Schedule, value: any) => {
+    setSchedules(prev => prev.map((s, i) => i === index ? { ...s, [field]: value } : s));
+  };
+
+  // ─── Conflict validation ───
+  const timeBlocksOverlap = (
+    a: { dia: string; hora: number; duracion: number },
+    b: { dia: string; hora: number; duracion: number }
+  ): boolean => {
+    if (a.dia !== b.dia) return false;
+    const aEnd = a.hora + a.duracion;
+    const bEnd = b.hora + b.duracion;
+    return a.hora < bEnd && b.hora < aEnd;
+  };
+
+  const getConflictForBlock = (index: number): string | null => {
+    const block = schedules[index];
+    // Internal conflict (same materia)
+    for (let i = 0; i < schedules.length; i++) {
+      if (i === index) continue;
+      if (timeBlocksOverlap(block, schedules[i])) {
+        return `Se superpone con Horario ${i + 1}`;
       }
-      const finalId = userId || 'guest';
-      setUsuarioId(finalId);
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-      await Promise.all([cargarMisMaterias(finalId), cargarMateriasDisponibles(finalId)]);
-    } catch (error) {
-      console.error('Error cargando datos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los datos');
-    } finally {
-      if (showLoading) setLoading(false);
     }
-  };
-
-  const cargarMisMaterias = async (userId: string) => {
-    const data = await api.getMateriasByUsuario(userId);
-    const sortedData = data.sort((a: any, b: any) => {
-      if (a.estado === 'cursado' && b.estado !== 'cursado') return -1;
-      if (a.estado !== 'cursado' && b.estado === 'cursado') return 1;
-      return (a.materia.numero || 0) - (b.materia.numero || 0);
-    });
-    setMisMaterias(sortedData);
-  };
-
-  const cargarMateriasDisponibles = async (userId: string) => {
-    const data = await api.getMateriasDisponibles(userId);
-    setMateriasDisponibles(data);
-  };
-
-  const formatDateToTime = (date: Date): string => {
-    const hours = date.getHours().toString().padStart(2, '0');
-    const mins = date.getMinutes().toString().padStart(2, '0');
-    return `${hours}:${mins}`;
+    // External conflict (other materias)
+    const currentMateriaId = materiaEditando?.materiaId ?? materiaSeleccionada?.id;
+    const allMaterias = (misMateriasQuery.data as UsuarioMateria[] | undefined) || [];
+    for (const m of allMaterias) {
+      if (m.materiaId === currentMateriaId) continue;
+      if (m.estado !== 'cursado') continue;
+      const otherSchedules: Schedule[] = m.schedules?.length
+        ? m.schedules
+        : (m.dia && m.hora != null ? [{ dia: m.dia, hora: m.hora, duracion: m.duracion || 2, aula: m.aula }] : []);
+      for (const other of otherSchedules) {
+        if (timeBlocksOverlap(block, { dia: other.dia, hora: other.hora, duracion: other.duracion })) {
+          return `Conflicto con ${m.materia.nombre} (${other.dia} ${other.hora}:00)`;
+        }
+      }
+    }
+    return null;
   };
 
   const onHoraInicioChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -238,7 +283,16 @@ export default function MateriasScreen() {
     }
     if (selectedDate && event.type !== 'dismissed') {
       setHoraInicioDate(selectedDate);
-      setHoraInicio(formatDateToTime(selectedDate));
+      const newHora = selectedDate.getHours();
+      const currentSched = schedules[activeScheduleIndex];
+      const currentEnd = currentSched.hora + currentSched.duracion;
+      if (newHora >= currentEnd) {
+        updateScheduleField(activeScheduleIndex, 'hora', newHora);
+        updateScheduleField(activeScheduleIndex, 'duracion', 2);
+      } else {
+        updateScheduleField(activeScheduleIndex, 'hora', newHora);
+        updateScheduleField(activeScheduleIndex, 'duracion', currentEnd - newHora);
+      }
     }
   };
 
@@ -248,17 +302,18 @@ export default function MateriasScreen() {
     }
     if (selectedDate && event.type !== 'dismissed') {
       setHoraFinDate(selectedDate);
-      setHoraFin(formatDateToTime(selectedDate));
+      const endH = selectedDate.getHours();
+      const startH = schedules[activeScheduleIndex].hora;
+      const dur = Math.max(1, endH - startH);
+      updateScheduleField(activeScheduleIndex, 'duracion', dur);
     }
   };
 
   const seleccionarMateria = (materia: Materia) => {
     setMateriaSeleccionada(materia);
     setEstadoSeleccionado('no_cursado');
-    setDia('LU');
-    setHoraInicio('18:00');
-    setHoraFin('20:00');
-    setAula('');
+    setSchedules([{ dia: 'LU', hora: 18, duracion: 2, aula: '' }]);
+    setActiveScheduleIndex(0);
     setModoEdicion(false);
 
     const initDate = new Date(); initDate.setHours(18, 0, 0, 0); setHoraInicioDate(initDate);
@@ -273,30 +328,41 @@ export default function MateriasScreen() {
 
   const guardarMateria = async () => {
     if (!materiaSeleccionada) return;
+
+    // Validar conflictos antes de guardar
+    if (estadoSeleccionado === 'cursado') {
+      for (let i = 0; i < schedules.length; i++) {
+        const conflict = getConflictForBlock(i);
+        if (conflict) {
+          Alert.alert('Conflicto de horario', conflict);
+          return;
+        }
+      }
+    }
+
     try {
       setLoadingAction(true);
-      const parseTime = (timeStr: string) => {
-        const match = timeStr.match(/(\d{1,2}):(\d{2})/);
-        return match ? parseInt(match[1]) : 0;
-      };
-      const startH = parseTime(horaInicio);
-      const endH = parseTime(horaFin);
-      const dur = Math.max(1, endH - startH);
 
-      const schedule = estadoSeleccionado === 'cursado' ? {
-        dia, hora: startH, duracion: dur, aula: aula.trim() || null
-      } : { dia: null, hora: null, duracion: null, aula: null };
+      const schedule = estadoSeleccionado === 'cursado'
+        ? {
+            schedules: schedules.map(s => ({
+              dia: s.dia,
+              hora: s.hora,
+              duracion: s.duracion,
+              aula: (typeof s.aula === 'string' ? s.aula.trim() : null) || null,
+            }))
+          }
+        : { schedules: [], dia: null, hora: null, duracion: null, aula: null };
 
       if (modoEdicion && materiaEditando) {
-        await api.updateEstadoMateria(usuarioId, materiaEditando.materiaId, estadoSeleccionado, schedule);
+        await updateEstadoMateriaMutation.mutateAsync({ materiaId: materiaEditando.materiaId, estado: estadoSeleccionado, schedule });
         triggerHaptic('success');
       } else {
-        await api.addMateriaToUsuario(usuarioId, materiaSeleccionada.id, estadoSeleccionado as any, schedule);
+        await addMateriaMutation.mutateAsync({ materiaId: materiaSeleccionada.id, estado: estadoSeleccionado, schedule });
         triggerHaptic('success');
       }
       setModoEdicion(false);
       cerrarModalEstado();
-      await cargarDatos(false);
       showNotification(modoEdicion ? 'Materia actualizada' : 'Materia agregada');
     } catch (error: any) {
       showNotification(error.message || 'No se pudo guardar la materia', 'error');
@@ -308,9 +374,8 @@ export default function MateriasScreen() {
   const eliminarMateria = async (materiaId: number) => {
     try {
       setLoadingAction(true);
-      await api.removeMateriaFromUsuario(usuarioId, materiaId);
+      await removeMateriaMutation.mutateAsync(materiaId);
       triggerHaptic('success');
-      await cargarDatos(false);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'No se pudo eliminar la materia');
     } finally {
@@ -329,16 +394,31 @@ export default function MateriasScreen() {
     setMateriaSeleccionada(usuarioMateria.materia);
     setEstadoSeleccionado(usuarioMateria.estado);
     setMateriaEditando(usuarioMateria);
-    setDia(usuarioMateria.dia || 'LU');
 
-    const hIni = usuarioMateria.hora || 18;
-    const hFin = hIni + (usuarioMateria.duracion || 2);
-    setHoraInicio(`${hIni}:00`);
-    setHoraFin(`${hFin}:00`);
-    setAula(usuarioMateria.aula || '');
+    // Load schedules from array if available, else fallback to flat columns
+    if (usuarioMateria.schedules && usuarioMateria.schedules.length > 0) {
+      setSchedules(usuarioMateria.schedules.map(s => ({
+        dia: s.dia || 'LU',
+        hora: s.hora ?? 18,
+        duracion: s.duracion ?? 2,
+        aula: s.aula || '',
+      })));
+    } else if (usuarioMateria.dia && usuarioMateria.hora != null) {
+      setSchedules([{
+        dia: usuarioMateria.dia,
+        hora: usuarioMateria.hora,
+        duracion: usuarioMateria.duracion || 2,
+        aula: usuarioMateria.aula || '',
+      }]);
+    } else {
+      setSchedules([{ dia: 'LU', hora: 18, duracion: 2, aula: '' }]);
+    }
+    setActiveScheduleIndex(0);
 
-    const initDate = new Date(); initDate.setHours(hIni, 0, 0, 0); setHoraInicioDate(initDate);
-    const endDate = new Date(); endDate.setHours(hFin, 0, 0, 0); setHoraFinDate(endDate);
+    const firstHora = usuarioMateria.schedules?.[0]?.hora ?? usuarioMateria.hora ?? 18;
+    const firstDur = usuarioMateria.schedules?.[0]?.duracion ?? usuarioMateria.duracion ?? 2;
+    const initDate = new Date(); initDate.setHours(firstHora, 0, 0, 0); setHoraInicioDate(initDate);
+    const endDate = new Date(); endDate.setHours(firstHora + firstDur, 0, 0, 0); setHoraFinDate(endDate);
 
     setModoEdicion(true);
     setEstadoModalVisible(true);
@@ -374,14 +454,19 @@ export default function MateriasScreen() {
               <Text style={[styles.materiaNivel, { color: theme.icon }]}>#{item.materia.numero || 'N/A'}</Text>
             </View>
           </View>
-          {item.estado === 'cursado' && item.dia && item.hora && (
-            <View style={[styles.scheduleBadge, { backgroundColor: theme.background }]}>
-              <Ionicons name="time-outline" size={12} color={theme.blue} />
-              <Text style={[styles.scheduleText, { color: theme.blue }]}>
-                {item.dia} {item.hora}:00 ({item.duracion}hs){item.aula ? ` • ${item.aula}` : ''}
-              </Text>
-            </View>
-          )}
+          {item.estado === 'cursado' && (() => {
+            const scheds: Schedule[] = item.schedules?.length
+              ? item.schedules
+              : (item.dia && item.hora != null ? [{ dia: item.dia!, hora: item.hora!, duracion: item.duracion || 2, aula: item.aula }] : []);
+            return scheds.map((s, idx) => (
+              <View key={idx} style={[styles.scheduleBadge, { backgroundColor: theme.background }]}>
+                <Ionicons name="time-outline" size={12} color={theme.blue} />
+                <Text style={[styles.scheduleText, { color: theme.blue }]}>
+                  {s.dia} {s.hora}:00 ({s.duracion}hs){s.aula ? ` \u2022 ${s.aula}` : ''}
+                </Text>
+              </View>
+            ));
+          })()}
         </View>
         <View style={styles.chevronContainer}>
           <Ionicons name="chevron-forward" size={18} color={theme.icon} />
@@ -655,54 +740,103 @@ export default function MateriasScreen() {
 
                       {estadoSeleccionado === 'cursado' && (
                         <>
-                          <Text style={[styles.modalSectionHeader, { color: theme.icon, marginTop: 10 }]}>HORARIO DE CURSADA</Text>
-                          <View style={[styles.formGroup, { backgroundColor: theme.background }]}>
-                            <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-                              <Text style={[styles.inputLabel, { color: theme.text }]}>Día</Text>
-                              <View style={styles.daysContainer}>
-                                {['LU', 'MA', 'MI', 'JU', 'VI', 'SA'].map((d) => (
-                                  <TouchableOpacity
-                                    key={d}
-                                    onPress={() => { triggerHaptic(); setDia(d); }}
-                                    style={[styles.dayOption, { backgroundColor: dia === d ? theme.blue : theme.backgroundSecondary }]}
-                                  >
-                                    <Text style={[styles.dayOptionText, { color: dia === d ? '#fff' : theme.text }]}>{d}</Text>
-                                  </TouchableOpacity>
-                                ))}
-                              </View>
-                            </View>
-
-                            <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-                              <Text style={[styles.inputLabel, { color: theme.text }]}>Hora Inicio</Text>
-                              <TouchableOpacity onPress={() => setShowInicioTimePicker(true)} style={styles.timeButton}>
-                                <Text style={[styles.timeButtonText, { color: theme.blue }]}>{horaInicio}</Text>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, marginBottom: 10, paddingHorizontal: 5 }}>
+                            <Text style={[styles.modalSectionHeader, { color: theme.icon, marginBottom: 0 }]}>HORARIOS DE CURSADA ({schedules.length})</Text>
+                            {schedules.length < MAX_SCHEDULES && (
+                              <TouchableOpacity onPress={addScheduleBlock} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                <Ionicons name="add-circle" size={24} color={theme.blue} />
                               </TouchableOpacity>
-                            </View>
-                            {showInicioTimePicker && (
-                              <DateTimePicker value={horaInicioDate} mode="time" is24Hour={true} display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onHoraInicioChange} minuteInterval={30} />
                             )}
-
-                            <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-                              <Text style={[styles.inputLabel, { color: theme.text }]}>Hora Fin</Text>
-                              <TouchableOpacity onPress={() => setShowFinTimePicker(true)} style={styles.timeButton}>
-                                <Text style={[styles.timeButtonText, { color: theme.blue }]}>{horaFin}</Text>
-                              </TouchableOpacity>
-                            </View>
-                            {showFinTimePicker && (
-                              <DateTimePicker value={horaFinDate} mode="time" is24Hour={true} display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onHoraFinChange} minuteInterval={30} />
-                            )}
-
-                            <View style={styles.inputRow}>
-                              <Text style={[styles.inputLabel, { color: theme.text }]}>Aula</Text>
-                              <TextInput
-                                style={[styles.textInput, { color: theme.text }]}
-                                value={aula}
-                                onChangeText={setAula}
-                                placeholder="Ej: 304"
-                                placeholderTextColor={theme.icon}
-                              />
-                            </View>
                           </View>
+
+                          {schedules.map((sched, idx) => {
+                            const conflict = getConflictForBlock(idx);
+                            const endHour = sched.hora + sched.duracion;
+
+                            return (
+                              <View key={idx} style={[styles.formGroup, { backgroundColor: theme.background, marginBottom: 12 }]}>
+                                <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                                  <Text style={[styles.inputLabel, { color: theme.text, fontWeight: '700' }]}>Horario {idx + 1}</Text>
+                                  {schedules.length > 1 && (
+                                    <TouchableOpacity onPress={() => removeScheduleBlock(idx)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                                      <Ionicons name="close-circle" size={22} color={theme.red} />
+                                    </TouchableOpacity>
+                                  )}
+                                </View>
+
+                                <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                                  <Text style={[styles.inputLabel, { color: theme.text }]}>Dia</Text>
+                                  <View style={styles.daysContainer}>
+                                    {['LU', 'MA', 'MI', 'JU', 'VI', 'SA'].map((d) => (
+                                      <TouchableOpacity
+                                        key={d}
+                                        onPress={() => { triggerHaptic(); updateScheduleField(idx, 'dia', d); }}
+                                        style={[styles.dayOption, { backgroundColor: sched.dia === d ? theme.blue : theme.backgroundSecondary }]}
+                                      >
+                                        <Text style={[styles.dayOptionText, { color: sched.dia === d ? '#fff' : theme.text }]}>{d}</Text>
+                                      </TouchableOpacity>
+                                    ))}
+                                  </View>
+                                </View>
+
+                                <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                                  <Text style={[styles.inputLabel, { color: theme.text }]}>Hora Inicio</Text>
+                                  <TouchableOpacity
+                                    onPress={() => {
+                                      setActiveScheduleIndex(idx);
+                                      const d = new Date(); d.setHours(sched.hora, 0, 0, 0); setHoraInicioDate(d);
+                                      setShowInicioTimePicker(true);
+                                    }}
+                                    style={styles.timeButton}
+                                  >
+                                    <Text style={[styles.timeButtonText, { color: conflict ? theme.red : theme.blue }]}>
+                                      {conflict ? '--:--' : `${sched.hora.toString().padStart(2, '0')}:00`}
+                                    </Text>
+                                  </TouchableOpacity>
+                                </View>
+
+                                <View style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+                                  <Text style={[styles.inputLabel, { color: theme.text }]}>Hora Fin</Text>
+                                  <TouchableOpacity
+                                    onPress={() => {
+                                      setActiveScheduleIndex(idx);
+                                      const d = new Date(); d.setHours(endHour, 0, 0, 0); setHoraFinDate(d);
+                                      setShowFinTimePicker(true);
+                                    }}
+                                    style={styles.timeButton}
+                                  >
+                                    <Text style={[styles.timeButtonText, { color: conflict ? theme.red : theme.blue }]}>
+                                      {conflict ? '--:--' : `${endHour.toString().padStart(2, '0')}:00`}
+                                    </Text>
+                                  </TouchableOpacity>
+                                </View>
+
+                                <View style={styles.inputRow}>
+                                  <Text style={[styles.inputLabel, { color: theme.text }]}>Aula</Text>
+                                  <TextInput
+                                    style={[styles.textInput, { color: theme.text }]}
+                                    value={sched.aula || ''}
+                                    onChangeText={(val) => updateScheduleField(idx, 'aula', val)}
+                                    placeholder="Ej: 304"
+                                    placeholderTextColor={theme.icon}
+                                  />
+                                </View>
+
+                                {conflict && (
+                                  <View style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: theme.red + '10', borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }}>
+                                    <Text style={{ color: theme.red, fontSize: 12, fontWeight: '600' }}>{conflict}</Text>
+                                  </View>
+                                )}
+                              </View>
+                            );
+                          })}
+
+                          {showInicioTimePicker && (
+                            <DateTimePicker value={horaInicioDate} mode="time" is24Hour={true} display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onHoraInicioChange} minuteInterval={30} />
+                          )}
+                          {showFinTimePicker && (
+                            <DateTimePicker value={horaFinDate} mode="time" is24Hour={true} display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onHoraFinChange} minuteInterval={30} />
+                          )}
                         </>
                       )}
                     </ScrollView>

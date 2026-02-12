@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
-import { PomodoroMode } from '../../hooks/usePomodoroTimer';
+// Legacy component - replaced by TimerScreen
+type PomodoroMode = 'focus' | 'short_break' | 'long_break';
 
 // Duolingo-inspired colors
 const MILO_COLORS = {

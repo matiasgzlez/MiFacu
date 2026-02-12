@@ -1,7 +1,8 @@
 import React, { useState, memo, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, Animated, Pressable, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { DataRepository } from '../../services/dataRepository';
 import type { ThemeColors, Recordatorio } from '../../types';
 import { mifacuNavy } from '../../constants/theme';
@@ -24,6 +25,7 @@ const formatTaskDate = (fechaStr: string): string => {
 interface TaskItemProps {
   task: Recordatorio;
   onDelete: () => void;
+  onUpdate?: (id: number, data: Partial<Recordatorio>) => void;
   theme: ThemeColors;
   separatorColor: string;
 }
@@ -35,6 +37,7 @@ interface TaskItemProps {
 export const TaskItem = memo<TaskItemProps>(function TaskItem({
   task,
   onDelete,
+  onUpdate,
   theme,
   separatorColor,
 }) {
@@ -42,26 +45,39 @@ export const TaskItem = memo<TaskItemProps>(function TaskItem({
   const [isEditing, setIsEditing] = useState(false);
   const [text, setText] = useState(task.nombre);
   const [description, setDescription] = useState(task.descripcion || '');
+  const [fecha, setFecha] = useState(task.fecha || '');
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const opacity = useRef(new Animated.Value(1)).current;
   const scale = useRef(new Animated.Value(1)).current;
 
   const handleSave = useCallback(async () => {
     setIsEditing(false);
+    setShowDatePicker(false);
     const trimmedText = text.trim();
     const trimmedDesc = description.trim() || undefined;
 
-    if (trimmedText !== task.nombre || trimmedDesc !== task.descripcion) {
+    if (trimmedText !== task.nombre || trimmedDesc !== task.descripcion || fecha !== task.fecha) {
       try {
-        await DataRepository.updateRecordatorio(task.id, {
-          nombre: trimmedText,
-          descripcion: trimmedDesc,
-        });
+        const updateData: any = { nombre: trimmedText, descripcion: trimmedDesc };
+        if (fecha !== task.fecha) {
+          updateData.fecha = fecha;
+        }
+        await DataRepository.updateRecordatorio(task.id, updateData);
+        onUpdate?.(task.id, { nombre: trimmedText, descripcion: trimmedDesc, fecha });
       } catch (e) {
         console.error('Error updating task', e);
       }
     }
-  }, [text, description, task.nombre, task.descripcion, task.id]);
+  }, [text, description, fecha, task.nombre, task.descripcion, task.fecha, task.id, onUpdate]);
+
+  const handleDateChange = useCallback((_: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') setShowDatePicker(false);
+    if (selectedDate) {
+      const newFecha = selectedDate.toISOString().split('T')[0];
+      setFecha(newFecha);
+    }
+  }, []);
 
   const handleComplete = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -118,6 +134,28 @@ export const TaskItem = memo<TaskItemProps>(function TaskItem({
             placeholder="Descripción (opcional)"
             placeholderTextColor={theme.separator}
           />
+          <Pressable
+            onPress={() => setShowDatePicker(!showDatePicker)}
+            style={[
+              styles.editDateChip,
+              { backgroundColor: isDarkMode ? 'rgba(99,102,241,0.15)' : '#EEF2FF' },
+            ]}
+          >
+            <Ionicons name="calendar-outline" size={11} color={isDarkMode ? '#818CF8' : '#6366F1'} />
+            <Text style={[styles.editDateChipText, { color: isDarkMode ? '#818CF8' : '#6366F1' }]}>
+              {fecha ? formatTaskDate(fecha) : 'Sin fecha'}
+            </Text>
+          </Pressable>
+          {showDatePicker && (
+            <DateTimePicker
+              value={fecha ? new Date(fecha + 'T00:00:00') : new Date()}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'compact' : 'default'}
+              onChange={handleDateChange}
+              locale="es-AR"
+              style={Platform.OS === 'ios' ? { marginTop: 4, alignSelf: 'flex-start' } : undefined}
+            />
+          )}
         </View>
       ) : (
         <TouchableOpacity
@@ -216,5 +254,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     padding: 0,
     marginTop: 4,
+  },
+  editDateChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  editDateChipText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

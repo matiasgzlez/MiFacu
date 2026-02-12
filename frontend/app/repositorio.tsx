@@ -30,6 +30,8 @@ import { Colors } from '../src/constants/theme';
 import { DataRepository } from '../src/services/dataRepository';
 import { useAuth } from '../src/context/AuthContext';
 import { materiasApi } from '../src/services/api';
+import { useLinks as useLinksQuery, useMisMaterias, useCreateLink, useUpdateLink, useDeleteLink } from '../src/hooks/useQueries';
+import { useRefetchOnFocus } from '../src/hooks/useRefetchOnFocus';
 
 const { width, height } = Dimensions.get('window');
 
@@ -61,8 +63,17 @@ export default function RepositorioScreen() {
 
   const { isGuest, user } = useAuth();
 
-  const [links, setLinks] = useState<LinkItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const linksQuery = useLinksQuery();
+  const misMateriasQuery = useMisMaterias();
+  useRefetchOnFocus(linksQuery);
+  useRefetchOnFocus(misMateriasQuery);
+
+  const createLinkMutation = useCreateLink();
+  const updateLinkMutation = useUpdateLink();
+  const deleteLinkMutation = useDeleteLink();
+
+  const links = (linksQuery.data || []) as LinkItem[];
+  const loading = !linksQuery.data && linksQuery.isLoading;
   const [refreshing, setRefreshing] = useState(false);
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -70,61 +81,25 @@ export default function RepositorioScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedColor, setSelectedColor] = useState(LINK_COLORS[0]);
 
-  // Estado para materias disponibles y picker
-  const [materiasDisponibles, setMateriasDisponibles] = useState<string[]>([]);
+  // Derive materiasDisponibles from mis materias query
+  const materiasDisponibles = React.useMemo<string[]>(() => {
+    const data = misMateriasQuery.data as any[] | undefined;
+    if (!data) return [];
+    return data
+      .map((um: any) => um.materia?.nombre as string)
+      .filter((n: string | undefined): n is string => Boolean(n))
+      .sort((a: string, b: string) => a.localeCompare(b));
+  }, [misMateriasQuery.data]);
+
   const [showMateriaPicker, setShowMateriaPicker] = useState(false);
   const [materiaSearch, setMateriaSearch] = useState('');
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const data = await DataRepository.getLinks(isGuest);
-      setLinks(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadMaterias = async () => {
-    try {
-      if (!isGuest && user?.id) {
-        const usuarioMaterias = await materiasApi.getMateriasByUsuario(user.id);
-        // La respuesta tiene estructura: { materia: { nombre: "..." }, estado: "..." }
-        const nombres: string[] = usuarioMaterias
-          .map((um: any) => um.materia?.nombre as string)
-          .filter((n: string | undefined): n is string => Boolean(n))
-          .sort((a: string, b: string) => a.localeCompare(b));
-        setMateriasDisponibles(nombres);
-      } else if (isGuest) {
-        // Para guests, obtener materias de los links locales existentes
-        const localLinks = await DataRepository.getLinks(true);
-        const materiasSet = new Set<string>(localLinks.map((l: any) => l.materia as string).filter(Boolean));
-        setMateriasDisponibles([...materiasSet].sort());
-      }
-    } catch (e) {
-      console.error('Error cargando materias:', e);
-      // Si falla, al menos mostrar las materias de los links existentes
-      try {
-        const existingLinks = await DataRepository.getLinks(isGuest);
-        const materiasSet = new Set<string>(existingLinks.map((l: any) => l.materia as string).filter(Boolean));
-        setMateriasDisponibles([...materiasSet].sort());
-      } catch {}
-    }
-  };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     triggerHaptic('light');
-    await loadData();
+    await linksQuery.refetch();
     setRefreshing(false);
-  }, [isGuest]);
-
-  React.useEffect(() => {
-    loadData();
-    loadMaterias();
-  }, [isGuest, user]);
+  }, [linksQuery.refetch]);
 
   // Animated values for Modal
   const modalSheetAnim = useRef(new Animated.Value(height)).current;
@@ -274,15 +249,15 @@ export default function RepositorioScreen() {
 
     try {
       if (editandoId) {
-        await DataRepository.updateLink(isGuest, editandoId, {
+        await updateLinkMutation.mutateAsync({ id: editandoId, data: {
           nombre: nuevoNombre,
           materia: nuevaMateria.toUpperCase() || "GENERAL",
           url: urlFinal,
           color: selectedColor
-        });
+        }});
         triggerHaptic('success');
       } else {
-        await DataRepository.createLink(isGuest, {
+        await createLinkMutation.mutateAsync({
           nombre: nuevoNombre,
           materia: nuevaMateria.toUpperCase() || "GENERAL",
           url: urlFinal,
@@ -290,7 +265,6 @@ export default function RepositorioScreen() {
         });
         triggerHaptic('success');
       }
-      loadData();
       cerrarModal();
     } catch (error) {
       Alert.alert("Error", "No se pudo guardar el link.");
@@ -309,8 +283,7 @@ export default function RepositorioScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await DataRepository.deleteLink(isGuest, id);
-              loadData();
+              await deleteLinkMutation.mutateAsync(id);
               triggerHaptic('success');
             } catch (error) {
               Alert.alert("Error", "No se pudo eliminar el link.");

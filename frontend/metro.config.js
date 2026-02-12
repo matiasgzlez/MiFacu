@@ -20,4 +20,23 @@ config.resolver.nodeModulesPaths = [
 // This prevents it from wandering into the root and getting confused about assets
 config.resolver.disableHierarchicalLookup = true;
 
+// 4. When running with EXPO_GO=1, mock native modules that crash in Expo Go
+//    Usage: EXPO_GO=1 npx expo start
+if (process.env.EXPO_GO === '1') {
+    const skiaMockPath = path.resolve(projectRoot, 'src/mocks/skia-mock.js');
+
+    const originalResolveRequest = config.resolver.resolveRequest;
+
+    config.resolver.resolveRequest = (context, moduleName, platform) => {
+        if (moduleName === '@shopify/react-native-skia') {
+            return { filePath: skiaMockPath, type: 'sourceFile' };
+        }
+
+        if (originalResolveRequest) {
+            return originalResolveRequest(context, moduleName, platform);
+        }
+        return context.resolveRequest(context, moduleName, platform);
+    };
+}
+
 module.exports = config;

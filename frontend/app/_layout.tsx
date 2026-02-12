@@ -9,6 +9,8 @@ import { ThemeProvider, useTheme } from "../src/context/ThemeContext";
 import { PremiumProvider } from "../src/context/PremiumContext";
 import { View, ActivityIndicator, StatusBar } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "../src/lib/queryClient";
 import { Colors } from "../src/constants/theme";
 import { useEffect, useState, useCallback } from "react";
 import * as SplashScreen from "expo-splash-screen";
@@ -129,10 +131,12 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutReady}>
-      <ThemeProvider>
-        <AppContent />
-        {showAnimatedSplash && <AnimatedSplash onFinish={onSplashFinish} />}
-      </ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AppContent />
+          {showAnimatedSplash && <AnimatedSplash onFinish={onSplashFinish} />}
+        </ThemeProvider>
+      </QueryClientProvider>
     </GestureHandlerRootView>
   );
 }

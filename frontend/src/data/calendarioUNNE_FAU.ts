@@ -12,7 +12,7 @@ export const UNNE_FAU_EVENT_COLORS: Record<UNNEFAUEventType, string> = {
   receso: '#7DD3FC',
   mesa_examen: '#F97316',
   inscripcion: '#8B5CF6',
-  feriado: '#EF4444',
+  feriado: '#374151',
 };
 
 export const UNNE_FAU_EVENT_LABELS: Record<UNNEFAUEventType, string> = {

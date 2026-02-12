@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState, useRef } from 'react';
+import { useRouter } from 'expo-router';
+import React, { useState, useRef } from 'react';
 import {
   ScrollView,
   StatusBar,
@@ -13,10 +13,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import { materiasApi as api } from '../src/services/api';
 import { Colors } from '../src/constants/theme';
 import { useAuth } from '../src/context/AuthContext';
 import { useTheme } from '../src/context/ThemeContext';
+import { useMisMaterias } from '../src/hooks/useQueries';
+import { useRefetchOnFocus } from '../src/hooks/useRefetchOnFocus';
 
 interface Materia {
   id: number;
@@ -181,48 +182,44 @@ export default function HorariosScreen() {
   const COLORS = getColors(theme);
   const { user, isGuest } = useAuth();
 
-  const [materias, setMaterias] = useState<Materia[]>([]);
+  const misMateriasQuery = useMisMaterias();
+  useRefetchOnFocus(misMateriasQuery);
+
   const [selectedDay, setSelectedDay] = useState(getDiaHoyIndex());
 
-  // ─── Data Loading (same logic) ───
-  useFocusEffect(
-    useCallback(() => {
-      const cargarMaterias = async () => {
-        try {
-          const userId = user?.id || (isGuest ? 'guest' : null);
-          if (!userId) return;
+  // Derive materias from query data — expand schedules array into individual entries
+  const materias = React.useMemo<Materia[]>(() => {
+    const todas = misMateriasQuery.data as any[] | undefined;
+    if (!todas) return [];
 
-          const todas = await api.getMateriasByUsuario(userId);
+    const entries: Materia[] = [];
 
-          const cursandoData = todas.filter((m: any) => {
-            const isCursando = String(m.estado).toLowerCase().includes('cursad');
-            const hasDia = !!m.dia;
-            const hasHora = m.hora !== null && m.hora !== undefined;
-            return isCursando && hasDia && hasHora;
-          });
+    const cursandoData = todas.filter((m: any) =>
+      String(m.estado).toLowerCase().includes('cursad')
+    );
 
-          const conColores = cursandoData.map((m: any) => {
-            const nombreMateria = m.materia?.nombre || 'Materia';
-            return {
-              id: m.materiaId || Math.random(),
-              nombre: nombreMateria,
-              dia: (m.dia || '').trim().toUpperCase(),
-              hora: Number(m.hora),
-              duracion: Number(m.duracion || 2),
-              aula: m.aula || null,
-              color: COLORS[nombreMateria] || COLORS.default,
-            };
-          });
+    cursandoData.forEach((m: any) => {
+      const nombreMateria = m.materia?.nombre || 'Materia';
+      const scheds: any[] = m.schedules?.length
+        ? m.schedules
+        : (m.dia && m.hora != null ? [{ dia: m.dia, hora: m.hora, duracion: m.duracion, aula: m.aula }] : []);
 
-          setMaterias(conColores);
-        } catch (error) {
-          console.error('Error cargando materias para horarios:', error);
-        }
-      };
+      scheds.forEach((s: any) => {
+        if (!s.dia || s.hora == null) return;
+        entries.push({
+          id: m.materiaId || Math.random(),
+          nombre: nombreMateria,
+          dia: (s.dia || '').trim().toUpperCase(),
+          hora: Number(s.hora),
+          duracion: Number(s.duracion || 2),
+          aula: s.aula || null,
+          color: COLORS[nombreMateria] || COLORS.default,
+        });
+      });
+    });
 
-      cargarMaterias();
-    }, [])
-  );
+    return entries;
+  }, [misMateriasQuery.data, COLORS]);
 
   // ─── Computed ───
   const materiasDelDia = materias

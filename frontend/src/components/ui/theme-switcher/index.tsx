@@ -1,16 +1,31 @@
 import React, { useState, useRef, forwardRef, useImperativeHandle } from 'react';
-import {
-  Canvas,
-  Circle,
-  Group,
-  Image,
-  Mask,
-  Rect,
-  makeImageFromView,
-} from '@shopify/react-native-skia';
-import type { SkImage } from '@shopify/react-native-skia';
 import { Dimensions, PixelRatio, StyleSheet, View } from 'react-native';
-import { useSharedValue, withTiming, Easing } from 'react-native-reanimated';
+import Constants from 'expo-constants';
+
+// Detect Expo Go at runtime — skip Skia rendering (native module not available)
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
+
+const skia = require('@shopify/react-native-skia');
+const SkiaAvailable = !isExpoGo && !skia.__MOCK__;
+
+const Canvas = skia.Canvas;
+const Circle = skia.Circle;
+const Group = skia.Group;
+const SkiaImage = skia.Image;
+const Mask = skia.Mask;
+const Rect = skia.Rect;
+const makeImageFromView = skia.makeImageFromView;
+
+// Only load reanimated when Skia is available (avoids worklets version mismatch in Expo Go)
+let useSharedValue: any;
+let withTiming: any;
+let Easing: any;
+if (SkiaAvailable) {
+    const reanimated = require('react-native-reanimated');
+    useSharedValue = reanimated.useSharedValue;
+    withTiming = reanimated.withTiming;
+    Easing = reanimated.Easing;
+}
 
 export interface ThemeSwitcherRef {
   animate: (touchX?: number, touchY?: number) => Promise<void>;
@@ -40,9 +55,24 @@ const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, 
 
 export const ThemeSwitcher = forwardRef<ThemeSwitcherRef, ThemeSwitcherProps>(
   ({ onThemeChange, children, animationDuration = 600 }, ref) => {
+    // Fallback for Expo Go — no Skia animation, just instant theme change
+    if (!SkiaAvailable) {
+      useImperativeHandle(ref, () => ({
+        animate: async () => {
+          onThemeChange();
+        },
+      }));
+
+      return (
+        <View style={styles.container}>
+          {children}
+        </View>
+      );
+    }
+
     const pd = PixelRatio.get();
     const viewRef = useRef<View>(null);
-    const [overlay, setOverlay] = useState<SkImage | null>(null);
+    const [overlay, setOverlay] = useState<any>(null);
     const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('screen');
 
     const circleRadius = useSharedValue(0);
@@ -112,7 +142,7 @@ export const ThemeSwitcher = forwardRef<ThemeSwitcherRef, ThemeSwitcherProps>(
                 </Group>
               }
             >
-              <Image
+              <SkiaImage
                 image={overlay}
                 x={0}
                 y={0}

@@ -1,26 +1,34 @@
 import React, { memo, useMemo, useCallback } from 'react';
-import {
-    Canvas,
-    RoundedRect,
-    Skia,
-    Group,
-    Paint,
-    RuntimeShader,
-    rect,
-    rrect,
-    Image as SkiaImage,
-    useImage,
-} from '@shopify/react-native-skia';
-import type { SkPath } from '@shopify/react-native-skia';
 import { StyleSheet, View, Pressable, GestureResponderEvent } from 'react-native';
-import { RIPPLE_SHADER_SOURCE } from './conf';
-import { useRipple } from './hook';
+import Constants from 'expo-constants';
 import type { IRippleSkiaEffect, IRippleImage, IRippleRect } from './types';
 
-const RIPPLE_SHADER = Skia.RuntimeEffect.Make(RIPPLE_SHADER_SOURCE);
+// Detect Expo Go at runtime — skip Skia rendering (native module not available)
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
+
+const skia = require('@shopify/react-native-skia');
+const SkiaAvailable = !isExpoGo && !skia.__MOCK__;
+
+const Canvas = skia.Canvas;
+const RoundedRect = skia.RoundedRect;
+const SkiaModule = skia.Skia;
+const Group = skia.Group;
+const Paint = skia.Paint;
+const RuntimeShader = skia.RuntimeShader;
+const rect = skia.rect;
+const rrect = skia.rrect;
+const SkiaImage = skia.Image;
+const useImage = skia.useImage;
+
+const RIPPLE_SHADER = SkiaAvailable
+    ? SkiaModule.RuntimeEffect.Make(require('./conf').RIPPLE_SHADER_SOURCE)
+    : null;
+
+const useRippleFn = SkiaAvailable ? require('./hook').useRipple : null;
 
 /**
  * SkiaRippleEffect - Generic wrapper for any Skia content
+ * Falls back to a simple Pressable in Expo Go.
  */
 export const SkiaRippleEffect = memo<IRippleSkiaEffect>(
     ({
@@ -36,7 +44,15 @@ export const SkiaRippleEffect = memo<IRippleSkiaEffect>(
         style,
         onPress,
     }) => {
-        const { uniforms, triggerRipple } = useRipple({
+        if (!SkiaAvailable) {
+            return (
+                <Pressable onPress={onPress} style={[{ width, height, borderRadius, overflow: 'hidden' }, style]}>
+                    {children}
+                </Pressable>
+            );
+        }
+
+        const { uniforms, triggerRipple } = useRippleFn!({
             amplitude,
             decay,
             duration,
@@ -50,9 +66,9 @@ export const SkiaRippleEffect = memo<IRippleSkiaEffect>(
             triggerRipple(e.nativeEvent.locationX, e.nativeEvent.locationY);
         }, [triggerRipple]);
 
-        const clipPath = useMemo<SkPath | null>(() => {
+        const clipPath = useMemo(() => {
             if (borderRadius <= 0) return null;
-            const path = Skia.Path.Make();
+            const path = SkiaModule.Path.Make();
             path.addRRect(rrect(rect(0, 0, width, height), borderRadius, borderRadius));
             return path;
         }, [width, height, borderRadius]);
@@ -90,6 +106,7 @@ export const SkiaRippleEffect = memo<IRippleSkiaEffect>(
 
 /**
  * RippleImage - Image with ripple effect
+ * Falls back to a simple Pressable in Expo Go.
  */
 export const RippleImage = memo<IRippleImage>(
     ({
@@ -106,8 +123,19 @@ export const RippleImage = memo<IRippleImage>(
         fit = 'cover',
         onPress,
     }) => {
+        if (!SkiaAvailable) {
+            return (
+                <Pressable
+                    onPress={onPress}
+                    style={[{ width, height, borderRadius, overflow: 'hidden' }, style]}
+                >
+                    <View style={{ width, height, backgroundColor: '#ccc' }} />
+                </Pressable>
+            );
+        }
+
         const image = useImage(typeof source === 'string' ? source : null);
-        const { uniforms, triggerRipple } = useRipple({
+        const { uniforms, triggerRipple } = useRippleFn!({
             amplitude,
             decay,
             duration,
@@ -121,9 +149,9 @@ export const RippleImage = memo<IRippleImage>(
             triggerRipple(e.nativeEvent.locationX, e.nativeEvent.locationY);
         }, [triggerRipple]);
 
-        const clipPath = useMemo<SkPath | null>(() => {
+        const clipPath = useMemo(() => {
             if (borderRadius <= 0) return null;
-            const path = Skia.Path.Make();
+            const path = SkiaModule.Path.Make();
             path.addRRect(rrect(rect(0, 0, width, height), borderRadius, borderRadius));
             return path;
         }, [width, height, borderRadius]);
@@ -171,9 +199,7 @@ export const RippleImage = memo<IRippleImage>(
 
 /**
  * RippleRect - Rectangle/Card with ripple effect and React Native children
- *
- * `style` is applied to the children overlay (for padding, alignment, etc.)
- * The outer container handles sizing, borderRadius, and overflow clipping.
+ * Falls back to a simple View with backgroundColor in Expo Go.
  */
 export const RippleRect = memo<IRippleRect>(
     ({
@@ -190,7 +216,22 @@ export const RippleRect = memo<IRippleRect>(
         children,
         onPress,
     }) => {
-        const { uniforms, triggerRipple } = useRipple({
+        if (!SkiaAvailable) {
+            return (
+                <Pressable
+                    onPress={onPress}
+                    style={{ width, height, borderRadius, overflow: 'hidden', backgroundColor: color }}
+                >
+                    {children != null && (
+                        <View style={[StyleSheet.absoluteFill, style]} pointerEvents="box-none">
+                            {children}
+                        </View>
+                    )}
+                </Pressable>
+            );
+        }
+
+        const { uniforms, triggerRipple } = useRippleFn!({
             amplitude,
             decay,
             duration,

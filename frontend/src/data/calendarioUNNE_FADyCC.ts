@@ -11,7 +11,7 @@ export const UNNE_FADYCC_EVENT_COLORS: Record<UNNEFADyCCEventType, string> = {
   inicio_fin_cuatri: '#10B981',
   receso: '#7DD3FC',
   mesa_examen: '#F97316',
-  feriado: '#EF4444',
+  feriado: '#374151',
 };
 
 export const UNNE_FADYCC_EVENT_LABELS: Record<UNNEFADyCCEventType, string> = {

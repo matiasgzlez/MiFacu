@@ -99,6 +99,7 @@ export class RecordatoriosService {
             hora: string;
             color: string;
             notificado: boolean;
+            descripcion: string;
         }>,
         userId: string
     ): Promise<Recordatorio> {

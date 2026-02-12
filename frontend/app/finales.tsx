@@ -27,6 +27,8 @@ import { DataRepository } from '../src/services/dataRepository';
 import { useAuth } from '../src/context/AuthContext';
 import { Colors } from '../src/constants/theme';
 import { materiasApi } from '../src/services/api';
+import { useFinales as useFinalesQuery, useDeleteFinal, useCreateFinal } from '../src/hooks/useQueries';
+import { useRefetchOnFocus } from '../src/hooks/useRefetchOnFocus';
 
 // La configuración del handler ahora está centralizada en src/utils/notifications.ts
 
@@ -247,16 +249,26 @@ export default function FinalesScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
 
-  const [examenes, setExamenes] = useState<{
-    id: any,
-    materia: string,
-    fecha: string,
-    hora: string,
-    color: string,
-    notificar: boolean,
-    recordatorioAnticipacion: number
-  }[]>([]);
-  const [loading, setLoading] = useState(true);
+  const finalesQuery = useFinalesQuery();
+  useRefetchOnFocus(finalesQuery);
+  const deleteFinalMutation = useDeleteFinal();
+  const createFinalMutation = useCreateFinal();
+
+  const examenes = React.useMemo(() => {
+    const data = finalesQuery.data;
+    if (!Array.isArray(data)) return [];
+    return data.map((item: any) => ({
+      id: item.id,
+      materia: item.materia?.nombre || item.materiaNombre || 'Desconocida',
+      fecha: item.fecha.toString().split('T')[0].split('-').reverse().slice(0, 2).join('/'),
+      hora: item.hora ? item.hora.toString().slice(0, 5) : "09:00",
+      color: item.color || PALETA_COLORES[0],
+      notificar: item.notificar,
+      recordatorioAnticipacion: item.recordatorioAnticipacion,
+    }));
+  }, [finalesQuery.data]);
+
+  const loading = !finalesQuery.data && finalesQuery.isLoading;
 
   // Lista de materias disponibles
   const [materias, setMaterias] = useState<{ id: number; nombre: string }[]>([]);
@@ -286,27 +298,6 @@ export default function FinalesScreen() {
   const sheetAnim = useRef(new RNAnimated.Value(height)).current;
   const overlayOpacity = useRef(new RNAnimated.Value(0)).current;
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const data = await DataRepository.getFinales(isGuest);
-      const mapped = data.map((item: any) => ({
-        id: item.id,
-        materia: item.materia?.nombre || item.materiaNombre || 'Desconocida',
-        fecha: item.fecha.toString().split('T')[0].split('-').reverse().slice(0, 2).join('/'),
-        hora: item.hora ? item.hora.toString().slice(0, 5) : "09:00",
-        color: item.color || PALETA_COLORES[0],
-        notificar: item.notificar,
-        recordatorioAnticipacion: item.recordatorioAnticipacion,
-      }));
-      setExamenes(mapped);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const loadMaterias = async () => {
     try {
       const carreraId = (user?.user_metadata as any)?.carreraId;
@@ -331,10 +322,9 @@ export default function FinalesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadData();
       loadMaterias();
       requestPermissions();
-    }, [isGuest, (user?.user_metadata as any)?.carreraId])
+    }, [(user?.user_metadata as any)?.carreraId])
   );
 
   const openSheet = () => {
@@ -374,16 +364,13 @@ export default function FinalesScreen() {
 
   const executeDelete = async (id: any) => {
     try {
-      if (!isGuest) await DataRepository.deleteFinal(isGuest, id);
+      await deleteFinalMutation.mutateAsync(id);
 
-      // Cancelar notificación local
       try {
         await Notifications.cancelScheduledNotificationAsync(id.toString());
       } catch (notifierr) {
         console.error("Error canceling notification:", notifierr);
       }
-
-      loadData();
     } catch (e) { Alert.alert("Error al borrar"); }
   };
 
@@ -438,7 +425,7 @@ export default function FinalesScreen() {
     };
 
     try {
-      const response = await DataRepository.createFinal(isGuest, nuevo);
+      const response = await createFinalMutation.mutateAsync(nuevo);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       // Programar notificación local if enabled
@@ -490,7 +477,6 @@ export default function FinalesScreen() {
       }
 
       closeSheet();
-      loadData();
       setSelectedMateriaId(null); setSelectedMateriaNombre(''); setSelectedDate(null); setShowDatePicker(false); setSelectedTime(null); setShowTimePicker(false); setNuevoColor(PALETA_COLORES[0]);
     } catch (e) { Alert.alert("Error creando"); }
   };

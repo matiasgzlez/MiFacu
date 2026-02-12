@@ -14,6 +14,7 @@ interface TimelineChartProps {
   eventsByDate: Map<string, TimelineEvent[]>;
   monthsRange: { start: Date; end: Date };
   theme: any;
+  initialDate?: string; // "YYYY-MM-DD" — navigate to this date on mount
 }
 
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -109,21 +110,26 @@ export default function TimelineChart({
   eventsByDate,
   monthsRange,
   theme,
+  initialDate,
 }: TimelineChartProps) {
   const today = useMemo(() => new Date(), []);
 
-  // Clamp initial month to range
+  // Clamp initial month to range, or use initialDate if provided
   const initialMonth = useMemo(() => {
+    if (initialDate) {
+      const parts = initialDate.split('-');
+      return new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+    }
     const now = new Date();
     const start = monthsRange.start;
     const end = monthsRange.end;
     if (now < start) return new Date(start.getFullYear(), start.getMonth(), 1);
     if (now > end) return new Date(end.getFullYear(), end.getMonth(), 1);
     return new Date(now.getFullYear(), now.getMonth(), 1);
-  }, [monthsRange]);
+  }, [monthsRange, initialDate]);
 
   const [currentMonth, setCurrentMonth] = useState(initialMonth);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(initialDate || null);
   const [fadeAnim] = useState(() => new Animated.Value(0));
 
   const year = currentMonth.getFullYear();
@@ -175,24 +181,31 @@ export default function TimelineChart({
     [selectedDate, fadeAnim]
   );
 
-  // Get unique dot entries for a day: { key, color }
+  // Get unique dot entries for a day (personal events only)
   const getDayDots = useCallback(
     (dateKey: string): { key: string; color: string }[] => {
       const dayEvents = eventsByDate.get(dateKey);
       if (!dayEvents) return [];
       const seen = new Map<string, string>();
       dayEvents.forEach((ev) => {
-        if (ev.isInstitutional && ev.institutionalTipo) {
-          if (!seen.has(ev.institutionalTipo)) {
-            seen.set(ev.institutionalTipo, ev.institutionalColor || '#6B7280');
-          }
-        } else {
+        if (!ev.isInstitutional) {
           if (!seen.has(ev.tipo)) {
             seen.set(ev.tipo, EVENT_COLORS[ev.tipo] || '#6B7280');
           }
         }
       });
       return Array.from(seen, ([key, color]) => ({ key, color }));
+    },
+    [eventsByDate]
+  );
+
+  // Get institutional circle background color for a day
+  const getInstitutionalColor = useCallback(
+    (dateKey: string): string | null => {
+      const dayEvents = eventsByDate.get(dateKey);
+      if (!dayEvents) return null;
+      const institutional = dayEvents.find((ev) => ev.isInstitutional);
+      return institutional?.institutionalColor || null;
     },
     [eventsByDate]
   );
@@ -251,6 +264,7 @@ export default function TimelineChart({
               const isToday = isSameDay(cell.date, today) && cell.isCurrentMonth;
               const isSelected = selectedDate === cell.dateKey && cell.isCurrentMonth;
               const dots = cell.isCurrentMonth ? getDayDots(cell.dateKey) : [];
+              const instColor = cell.isCurrentMonth ? getInstitutionalColor(cell.dateKey) : null;
 
               return (
                 <TouchableOpacity
@@ -262,6 +276,11 @@ export default function TimelineChart({
                   <View
                     style={[
                       styles.dayCircle,
+                      instColor && !isToday && !isSelected && {
+                        backgroundColor: instColor + '30',
+                        borderWidth: 2,
+                        borderColor: instColor,
+                      },
                       isToday && styles.todayCircle,
                       isSelected && !isToday && [
                         styles.selectedCircle,
@@ -276,6 +295,10 @@ export default function TimelineChart({
                         !cell.isCurrentMonth && {
                           color: isDark ? '#444' : '#CBD5E1',
                         },
+                        instColor && !isToday && !isSelected && {
+                          color: instColor,
+                          fontWeight: '700',
+                        },
                         isToday && styles.todayText,
                       ]}
                     >
@@ -283,7 +306,7 @@ export default function TimelineChart({
                     </Text>
                   </View>
 
-                  {/* Event dots */}
+                  {/* Event dots (personal events only) */}
                   <View style={styles.dotsContainer}>
                     {dots.map((dot) => (
                       <View

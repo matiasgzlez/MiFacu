@@ -3,32 +3,22 @@ import { AppState, AppStateStatus } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
 
-export type PomodoroMode = 'focus' | 'short_break' | 'long_break';
-
-const MODE_DURATIONS: Record<PomodoroMode, number> = {
-  focus: 25 * 60,
-  short_break: 5 * 60,
-  long_break: 15 * 60,
-};
-
-const MODE_LABELS: Record<PomodoroMode, string> = {
-  focus: 'Enfoque',
-  short_break: 'Descanso corto',
-  long_break: 'Descanso largo',
-};
+export type TimerStatus = 'idle' | 'running' | 'paused' | 'completed';
 
 export function usePomodoroTimer() {
-  const [mode, setMode] = useState<PomodoroMode>('focus');
-  const [timeRemaining, setTimeRemaining] = useState(MODE_DURATIONS.focus);
-  const [isRunning, setIsRunning] = useState(false);
+  /** Duration selected by the user via the circular slider (in minutes) */
+  const [durationMinutes, setDurationMinutes] = useState(25);
+  const [timeRemaining, setTimeRemaining] = useState(25 * 60);
+  const [status, setStatus] = useState<TimerStatus>('idle');
   const [sessionsCompleted, setSessionsCompleted] = useState(0);
-  const [sessionJustCompleted, setSessionJustCompleted] = useState(false);
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Timestamp when the timer was last started/resumed */
   const startTimeRef = useRef<number | null>(null);
-  const remainingWhenPausedRef = useRef<number>(MODE_DURATIONS.focus);
+  /** Seconds remaining at the moment of last start/resume */
+  const remainingWhenStartedRef = useRef(25 * 60);
 
-  const totalDuration = MODE_DURATIONS[mode];
+  const isRunning = status === 'running';
 
   const clearTimer = useCallback(() => {
     if (intervalRef.current) {
@@ -43,10 +33,8 @@ export function usePomodoroTimer() {
       if (seconds > 0) {
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: mode === 'focus' ? 'Sesion completada!' : 'Descanso terminado!',
-            body: mode === 'focus'
-              ? 'Ganaste XP. Hora de un descanso.'
-              : 'Listo para enfocarte de nuevo?',
+            title: 'Sesión completada!',
+            body: 'Ganaste XP. Buen trabajo!',
             sound: true,
           },
           trigger: {
@@ -55,39 +43,42 @@ export function usePomodoroTimer() {
           },
         });
       }
-    } catch (e) {
-      // Notification scheduling can fail silently
+    } catch {
+      // Notification scheduling can fail silently in Expo Go
     }
-  }, [mode]);
+  }, []);
 
   const onTimerComplete = useCallback(() => {
     clearTimer();
-    setIsRunning(false);
-    setSessionJustCompleted(true);
+    setStatus('completed');
+    setTimeRemaining(0);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setSessionsCompleted((prev) => prev + 1);
+  }, [clearTimer]);
 
-    // Auto-clear celebration flag after 3 seconds
-    setTimeout(() => setSessionJustCompleted(false), 3000);
-
-    if (mode === 'focus') {
-      const newCount = sessionsCompleted + 1;
-      setSessionsCompleted(newCount);
-    }
-  }, [clearTimer, mode, sessionsCompleted]);
+  /**
+   * Set the focus duration (only when idle).
+   * Called by the CircularSlider.
+   */
+  const setDuration = useCallback((minutes: number) => {
+    setDurationMinutes(minutes);
+    const seconds = minutes * 60;
+    setTimeRemaining(seconds);
+    remainingWhenStartedRef.current = seconds;
+  }, []);
 
   const start = useCallback(() => {
     if (timeRemaining <= 0) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
     startTimeRef.current = Date.now();
-    remainingWhenPausedRef.current = timeRemaining;
-
-    setIsRunning(true);
+    remainingWhenStartedRef.current = timeRemaining;
+    setStatus('running');
     scheduleNotification(timeRemaining);
 
     intervalRef.current = setInterval(() => {
       const elapsed = Math.floor((Date.now() - (startTimeRef.current || Date.now())) / 1000);
-      const remaining = Math.max(0, remainingWhenPausedRef.current - elapsed);
+      const remaining = Math.max(0, remainingWhenStartedRef.current - elapsed);
       setTimeRemaining(remaining);
 
       if (remaining <= 0) {
@@ -99,45 +90,39 @@ export function usePomodoroTimer() {
   const pause = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     clearTimer();
-    setIsRunning(false);
-    remainingWhenPausedRef.current = timeRemaining;
+    setStatus('paused');
+    remainingWhenStartedRef.current = timeRemaining;
+    startTimeRef.current = null;
     Notifications.cancelAllScheduledNotificationsAsync();
   }, [clearTimer, timeRemaining]);
 
   const reset = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     clearTimer();
-    setIsRunning(false);
-    setTimeRemaining(MODE_DURATIONS[mode]);
-    remainingWhenPausedRef.current = MODE_DURATIONS[mode];
+    setStatus('idle');
+    const seconds = durationMinutes * 60;
+    setTimeRemaining(seconds);
+    remainingWhenStartedRef.current = seconds;
+    startTimeRef.current = null;
     Notifications.cancelAllScheduledNotificationsAsync();
-  }, [clearTimer, mode]);
+  }, [clearTimer, durationMinutes]);
 
-  const switchMode = useCallback((newMode: PomodoroMode) => {
+  const cancel = useCallback(() => {
     clearTimer();
-    setIsRunning(false);
-    setMode(newMode);
-    setTimeRemaining(MODE_DURATIONS[newMode]);
-    remainingWhenPausedRef.current = MODE_DURATIONS[newMode];
-    setSessionJustCompleted(false);
+    setStatus('idle');
+    const seconds = durationMinutes * 60;
+    setTimeRemaining(seconds);
+    remainingWhenStartedRef.current = seconds;
+    startTimeRef.current = null;
     Notifications.cancelAllScheduledNotificationsAsync();
-  }, [clearTimer]);
+  }, [clearTimer, durationMinutes]);
 
-  const goToNextMode = useCallback(() => {
-    if (mode === 'focus') {
-      const nextMode = (sessionsCompleted % 4 === 0 && sessionsCompleted > 0) ? 'long_break' : 'short_break';
-      switchMode(nextMode);
-    } else {
-      switchMode('focus');
-    }
-  }, [mode, sessionsCompleted, switchMode]);
-
-  // Handle app state changes (background/foreground)
+  // Handle app background/foreground
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active' && isRunning && startTimeRef.current) {
         const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-        const remaining = Math.max(0, remainingWhenPausedRef.current - elapsed);
+        const remaining = Math.max(0, remainingWhenStartedRef.current - elapsed);
         setTimeRemaining(remaining);
 
         if (remaining <= 0) {
@@ -155,23 +140,23 @@ export function usePomodoroTimer() {
     return () => clearTimer();
   }, [clearTimer]);
 
+  const totalDuration = durationMinutes * 60;
   const progress = totalDuration > 0 ? (totalDuration - timeRemaining) / totalDuration : 0;
+  const elapsedSeconds = totalDuration - timeRemaining;
 
   return {
-    mode,
-    modeLabel: MODE_LABELS[mode],
+    durationMinutes,
     timeRemaining,
+    status,
     isRunning,
     sessionsCompleted,
-    sessionJustCompleted,
     progress,
     totalDuration,
+    elapsedSeconds,
+    setDuration,
     start,
     pause,
     reset,
-    switchMode,
-    goToNextMode,
-    duracionMinutos: Math.round(totalDuration / 60),
-    duracionRealSegundos: totalDuration - timeRemaining,
+    cancel,
   };
 }

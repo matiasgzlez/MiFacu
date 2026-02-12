@@ -1,17 +1,26 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+
+// Detect Expo Go to skip native-only modules
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
 // Intentar importar RevenueCat, pero puede fallar en Expo Go
 let Purchases: any = null;
 let revenueCatAvailable = false;
 
-try {
-  Purchases = require('react-native-purchases').default;
-  revenueCatAvailable = true;
-} catch (e) {
-  console.log('RevenueCat not available (probably running in Expo Go)');
+if (isExpoGo) {
+  console.log('Expo Go detected. Skipping RevenueCat native initialization.');
   revenueCatAvailable = false;
+} else {
+  try {
+    Purchases = require('react-native-purchases').default;
+    revenueCatAvailable = true;
+  } catch (e) {
+    console.log('RevenueCat not available');
+    revenueCatAvailable = false;
+  }
 }
 
 const APIKeys = {
@@ -223,7 +232,7 @@ export function PremiumProvider({ children }: PremiumProviderProps) {
         refresh,
         __devSetPremium,
         __devOverrideActive: devOverrideActive,
-        __mockMode: !revenueCatAvailable,
+        __mockMode: isExpoGo || !revenueCatAvailable,
       }}
     >
       {children}

@@ -302,21 +302,6 @@ export default function HerramientasScreen() {
           </View>
         ))}
 
-        {/* INFO */}
-        <View style={styles.infoSection}>
-          <View style={[styles.infoCard, { backgroundColor: theme.backgroundSecondary }]}>
-            <View style={[styles.infoIconContainer, { backgroundColor: theme.tint + '15' }]}>
-              <Ionicons name="bulb-outline" size={24} color={theme.tint} />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={[styles.infoTitle, { color: theme.text }]}>Consejo</Text>
-              <Text style={[styles.infoText, { color: theme.icon }]}>
-                Usa el Simulador para planificar qué materias rendir y ver cómo afecta tu progreso de carrera.
-              </Text>
-            </View>
-          </View>
-        </View>
-
         <View style={{ height: 120 }} />
       </Animated.ScrollView>
     </View>
@@ -461,23 +446,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Info card
-  infoSection: { paddingHorizontal: 20, marginTop: 30 },
-  infoCard: {
-    flexDirection: 'row',
-    borderRadius: 14,
-    padding: 16,
-    alignItems: 'flex-start',
-  },
-  infoIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 14,
-  },
-  infoContent: { flex: 1 },
-  infoTitle: { fontSize: 15, fontWeight: '700', marginBottom: 4 },
-  infoText: { fontSize: 14, lineHeight: 20 },
 });

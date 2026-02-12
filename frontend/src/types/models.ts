@@ -2,6 +2,13 @@
  * Domain model interfaces for the Home screen
  */
 
+export interface Schedule {
+  dia: string;
+  hora: number;
+  duracion: number;
+  aula?: string | null;
+}
+
 export interface Recordatorio {
   id: number;
   nombre: string;
