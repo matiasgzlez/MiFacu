@@ -6,6 +6,7 @@ import { ReporteCalificacion } from '../models/reporte-calificacion.model';
 import { AppError } from '../middleware/errorHandler.middleware';
 import { CreateCalificacionDTO, UpdateCalificacionDTO, TipoVoto } from '../types/calificaciones';
 import { contieneProhibidas } from '../utils/filtro-palabras';
+import { moderarResena } from '../utils/moderacion-ia';
 
 export class CalificacionCatedraService {
     private calificacionRepository: Repository<CalificacionCatedra>;
@@ -59,6 +60,12 @@ export class CalificacionCatedraService {
             throw new AppError('El rating debe estar entre 1 y 5', 400);
         }
 
+        // Moderacion con IA
+        const moderacion = await moderarResena(data.comentario, data.profesorNombre);
+        if (!moderacion.aprobado) {
+            throw new AppError(moderacion.motivo || 'La reseña fue rechazada por contenido inapropiado', 400);
+        }
+
         const calificacion = this.calificacionRepository.create({
             materiaId: data.materiaId,
             profesorNombre: data.profesorNombre.trim(),
@@ -95,6 +102,14 @@ export class CalificacionCatedraService {
         // Validar rating si se actualiza
         if (data.rating !== undefined && (data.rating < 1 || data.rating > 5)) {
             throw new AppError('El rating debe estar entre 1 y 5', 400);
+        }
+
+        // Moderacion con IA si se actualiza el comentario
+        if (data.comentario) {
+            const moderacion = await moderarResena(data.comentario, data.profesorNombre || calificacion.profesorNombre);
+            if (!moderacion.aprobado) {
+                throw new AppError(moderacion.motivo || 'La reseña fue rechazada por contenido inapropiado', 400);
+            }
         }
 
         Object.assign(calificacion, {

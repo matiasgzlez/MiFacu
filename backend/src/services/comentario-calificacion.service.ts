@@ -4,6 +4,7 @@ import { ComentarioCalificacion } from '../models/comentario-calificacion.model'
 import { CalificacionCatedra } from '../models/calificacion-catedra.model';
 import { AppError } from '../middleware/errorHandler.middleware';
 import { contieneProhibidas } from '../utils/filtro-palabras';
+import { moderarResena } from '../utils/moderacion-ia';
 
 export class ComentarioCalificacionService {
     private comentarioRepository: Repository<ComentarioCalificacion>;
@@ -65,6 +66,12 @@ export class ComentarioCalificacionService {
         // Validar palabras prohibidas
         if (contieneProhibidas(data.contenido)) {
             throw new AppError('El comentario contiene palabras inapropiadas', 400);
+        }
+
+        // Moderacion con IA
+        const moderacion = await moderarResena(data.contenido, '');
+        if (!moderacion.aprobado) {
+            throw new AppError(moderacion.motivo || 'El comentario fue rechazado por contenido inapropiado', 400);
         }
 
         const comentario = this.comentarioRepository.create({
