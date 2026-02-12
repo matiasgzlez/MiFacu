@@ -61,6 +61,29 @@ Home (`useHomeData`), Timeline (`useTimelineData`), Parciales, Finales, Materias
 ### Pantallas NO migradas (fase 4 opcional)
 Simulador, Calificaciones, Temas Finales, Gamification, Materias Resenas. Estas siguen usando el patron viejo de fetch manual.
 
+## Dark Mode / Theming
+
+### Sistema de temas
+- **Archivo de colores**: `frontend/src/constants/theme.ts` — exporta `Colors.light` y `Colors.dark` con todas las variables
+- **Hook**: `useTheme()` de `frontend/src/context/ThemeContext.tsx` — retorna `{ colorScheme, isDark, toggleTheme }`
+- **Patron de uso**: `const { colorScheme, isDark } = useTheme(); const theme = Colors[colorScheme];`
+
+### Variables de theme disponibles
+`theme.text`, `theme.background`, `theme.backgroundSecondary`, `theme.card`, `theme.tint`, `theme.icon`, `theme.tabIconDefault`, `theme.tabIconSelected`, `theme.separator`, `theme.blue`, `theme.orange`, `theme.green`, `theme.red`, `theme.slate`, `theme.purple`
+
+### Reglas obligatorias para todas las pantallas/componentes
+1. **NUNCA hardcodear colores de texto, fondo, bordes o iconos** (`#333`, `#666`, `#fff`, `#000`, `#ccc`, `#eee`, `#F8F9FA`, etc.). Siempre usar `theme.*`
+2. **StatusBar**: siempre condicional `barStyle={isDark ? 'light-content' : 'dark-content'}` (excepto pantallas con header de color fijo donde el texto siempre es blanco)
+3. **Fondos de pantalla**: `theme.background` para el container principal, `theme.backgroundSecondary` para cards/modales
+4. **Textos**: `theme.text` para texto principal, `theme.icon` para texto secundario/metadata
+5. **Bordes/separadores**: `theme.separator` (nunca `#eee`, `#f0f0f0`, `rgba(0,0,0,0.05)`)
+6. **Switch thumbColor**: condicional `isDark ? '#555' : '#f4f3f4'` para el estado OFF
+7. **Colores semitransparentes**: usar `theme.blue + '20'` (hex opacity suffix), no `rgba()` con valores hardcodeados
+8. **Excepciones permitidas**: blanco (#fff) sobre botones de color, overlays de modal (rgba(0,0,0,0.5)), shadowColor (#000), colores de marca fijos (Milo, Google)
+
+### Patron StyleSheet + inline styles
+Los colores que dependen del theme van como inline styles (`style={[styles.card, { backgroundColor: theme.backgroundSecondary }]}`). Las propiedades que NO dependen del theme (padding, margin, borderRadius, fontSize, fontWeight) van en StyleSheet.create.
+
 ## Arquitectura del Calendario Academico
 
 ### Pantalla principal
