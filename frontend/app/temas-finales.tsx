@@ -165,7 +165,7 @@ function TemasFinalesContent() {
                                 <Text style={[styles.statTema, { color: theme.text }]} numberOfLines={1}>
                                     {stat.tema}
                                 </Text>
-                                <View style={styles.statBarContainer}>
+                                <View style={[styles.statBarContainer, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' }]}>
                                     <View
                                         style={[
                                             styles.statBar,

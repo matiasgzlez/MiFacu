@@ -5,6 +5,8 @@ import { ActivityIndicator, ScrollView, StatusBar, StyleSheet, Text, TouchableOp
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { materiasApi } from '../src/services/api';
 import { useAuth } from '../src/context/AuthContext';
+import { useTheme } from '../src/context/ThemeContext';
+import { Colors } from '../src/constants/theme';
 
 // Interfaces
 interface Materia {
@@ -23,6 +25,8 @@ export default function PlanEstudiosScreen() {
   const [materias, setMaterias] = useState<Materia[]>([]);
   const [loading, setLoading] = useState(true);
   const { isGuest, user } = useAuth();
+  const { colorScheme, isDark } = useTheme();
+  const theme = Colors[colorScheme];
 
   const loadMaterias = async () => {
     try {
@@ -63,27 +67,27 @@ export default function PlanEstudiosScreen() {
 
   const getColor = (estado: string) => {
     switch (estado) {
-      case 'aprobada': return '#4CAF50';
-      case 'cursando': return '#2196F3';
-      case 'regularizada': return '#FF9800';
-      default: return '#757575';
+      case 'aprobada': return theme.green;
+      case 'cursando': return theme.blue;
+      case 'regularizada': return theme.orange;
+      default: return theme.icon;
     }
   };
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2E5EC9" />
+      <View style={[styles.center, { backgroundColor: theme.background }]}>
+        <ActivityIndicator size="large" color={theme.tint} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#2E5EC9" />
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.tint} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: theme.tint }]}>
         <SafeAreaView>
           <View style={styles.topBar}>
             <TouchableOpacity onPress={() => router.back()}>
@@ -99,24 +103,24 @@ export default function PlanEstudiosScreen() {
         {materias.map((materia) => (
           <TouchableOpacity
             key={materia.id}
-            style={[styles.card, { borderColor: getColor(materia.estado), borderWidth: 2 }]}
+            style={[styles.card, { backgroundColor: theme.backgroundSecondary, borderColor: getColor(materia.estado), borderWidth: 2 }]}
             onPress={() => toggleMateria(materia)}
           >
             <View style={[styles.statusIndicator, { backgroundColor: getColor(materia.estado) }]} />
             <View style={styles.cardContent}>
-              <Text style={styles.materiaName}>{materia.nombre}</Text>
+              <Text style={[styles.materiaName, { color: theme.text }]}>{materia.nombre}</Text>
               <View style={styles.infoRow}>
                 <Text style={[styles.materiaInfo, { color: getColor(materia.estado) }]}>
                   {materia.estado.toUpperCase()}
                 </Text>
                 {materia.dia && materia.hora && (
-                  <Text style={styles.horario}>
+                  <Text style={[styles.horario, { color: theme.icon }]}>
                     {materia.dia} {materia.hora}:00 - {materia.aula}
                   </Text>
                 )}
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={24} color="#999" />
+            <Ionicons name="chevron-forward" size={24} color={theme.icon} />
           </TouchableOpacity>
         ))}
         <View style={{ height: 50 }} />
@@ -126,9 +130,9 @@ export default function PlanEstudiosScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F2' },
+  container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { backgroundColor: '#2E5EC9', paddingBottom: 20 },
+  header: { paddingBottom: 20 },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -139,7 +143,6 @@ const styles = StyleSheet.create({
   title: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
   content: { flex: 1, padding: 15, marginTop: -20 },
   card: {
-    backgroundColor: '#fff',
     borderRadius: 12,
     marginBottom: 12,
     flexDirection: 'row',
@@ -152,8 +155,8 @@ const styles = StyleSheet.create({
   },
   statusIndicator: { width: 8, height: '80%', borderRadius: 4, marginRight: 12 },
   cardContent: { flex: 1 },
-  materiaName: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 4 },
+  materiaName: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   materiaInfo: { fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
-  horario: { fontSize: 11, color: '#666' }
+  horario: { fontSize: 11 }
 });

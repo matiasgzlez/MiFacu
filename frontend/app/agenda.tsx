@@ -6,6 +6,8 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { materiasApi as api } from '../src/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../src/context/AuthContext';
+import { useTheme } from '../src/context/ThemeContext';
+import { Colors } from '../src/constants/theme';
 
 // Interfaces
 interface Materia {
@@ -32,6 +34,8 @@ const DIAS_SEMANA: { [key: string]: string } = {
 export default function AgendaScreen() {
   const router = useRouter();
   const { user, isGuest } = useAuth();
+  const { colorScheme } = useTheme();
+  const theme = Colors[colorScheme];
   const [materias, setMaterias] = useState<Materia[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -83,8 +87,8 @@ export default function AgendaScreen() {
   // Si está cargando, mostrar indicador
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Text style={{ fontSize: 16, color: '#666' }}>Cargando horarios...</Text>
+      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ fontSize: 16, color: theme.icon }}>Cargando horarios...</Text>
       </View>
     );
   }
@@ -105,8 +109,8 @@ export default function AgendaScreen() {
     return (
       <View key={diaKey} style={styles.diaContainer}>
         <View style={styles.diaHeader}>
-          <Text style={styles.diaNombre}>{diaNombre}</Text>
-          <Text style={styles.materiasCount}>
+          <Text style={[styles.diaNombre, { color: theme.text }]}>{diaNombre}</Text>
+          <Text style={[styles.materiasCount, { color: theme.icon }]}>
             {diaMaterias.length} {diaMaterias.length === 1 ? 'clase' : 'clases'}
           </Text>
         </View>
@@ -114,9 +118,9 @@ export default function AgendaScreen() {
         {diaMaterias.length > 0 ? (
           diaMaterias.map((materia) => renderMateria(materia))
         ) : (
-          <View style={styles.diaVacio}>
-            <Ionicons name="calendar-outline" size={48} color="#ddd" />
-            <Text style={styles.diaVacioTexto}>Sin clases</Text>
+          <View style={[styles.diaVacio, { backgroundColor: theme.backgroundSecondary, borderColor: theme.separator }]}>
+            <Ionicons name="calendar-outline" size={48} color={theme.separator} />
+            <Text style={[styles.diaVacioTexto, { color: theme.icon }]}>Sin clases</Text>
           </View>
         )}
       </View>
@@ -126,41 +130,41 @@ export default function AgendaScreen() {
   const renderMateria = (materia: Materia) => (
     <TouchableOpacity
       key={materia.id}
-      style={styles.materiaCard}
+      style={[styles.materiaCard, { backgroundColor: theme.backgroundSecondary }]}
       onPress={() => router.push({
         pathname: '/detalle-materia',
         params: { id: materia.id }
       })}
     >
-      <View style={styles.materiaIcon}>
-        <Ionicons name="book-outline" size={24} color="#2E5EC9" />
+      <View style={[styles.materiaIcon, { backgroundColor: theme.blue + '15' }]}>
+        <Ionicons name="book-outline" size={24} color={theme.blue} />
       </View>
 
       <View style={styles.materiaInfo}>
-        <Text style={styles.materiaNombre} numberOfLines={1}>
+        <Text style={[styles.materiaNombre, { color: theme.text }]} numberOfLines={1}>
           {materia.nombre}
         </Text>
         <View style={styles.materiaDetalles}>
-          <Ionicons name="time-outline" size={14} color="#666" />
-          <Text style={styles.materiaHora}>
+          <Ionicons name="time-outline" size={14} color={theme.icon} />
+          <Text style={[styles.materiaHora, { color: theme.icon }]}>
             {materia.hora}:00 - {materia.hora + (materia.duracion || 2)}:00
           </Text>
-          <Ionicons name="location-outline" size={14} color="#666" style={{ marginLeft: 10 }} />
-          <Text style={styles.materiaAula} numberOfLines={1}>
+          <Ionicons name="location-outline" size={14} color={theme.icon} style={{ marginLeft: 10 }} />
+          <Text style={[styles.materiaAula, { color: theme.icon }]} numberOfLines={1}>
             {materia.aula}
           </Text>
         </View>
       </View>
 
-      <Ionicons name="chevron-forward" size={20} color="#ccc" />
+      <Ionicons name="chevron-forward" size={20} color={theme.separator} />
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  container: { flex: 1 },
 
-  header: { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
+  header: { borderBottomWidth: 1 },
   topBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -169,12 +173,11 @@ const styles = StyleSheet.create({
     paddingTop: 50,
     paddingBottom: 15
   },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
+  headerTitle: { fontSize: 18, fontWeight: 'bold' },
 
   content: { flex: 1, paddingHorizontal: 15 },
   subtitulo: {
     fontSize: 14,
-    color: '#666',
     marginTop: 20,
     marginBottom: 15,
     textAlign: 'center'
@@ -187,11 +190,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10
   },
-  diaNombre: { fontSize: 18, fontWeight: 'bold', color: '#333' },
-  materiasCount: { fontSize: 12, color: '#666', fontWeight: '500' },
+  diaNombre: { fontSize: 18, fontWeight: 'bold' },
+  materiasCount: { fontSize: 12, fontWeight: '500' },
 
   materiaCard: {
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 15,
     flexDirection: 'row',
@@ -208,28 +210,25 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#F0F8FF',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 15
   },
 
   materiaInfo: { flex: 1 },
-  materiaNombre: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 4 },
+  materiaNombre: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
 
   materiaDetalles: { flexDirection: 'row', alignItems: 'center' },
-  materiaHora: { fontSize: 13, color: '#666', marginLeft: 4 },
-  materiaAula: { fontSize: 13, color: '#666', marginLeft: 4, flex: 1 },
+  materiaHora: { fontSize: 13, marginLeft: 4 },
+  materiaAula: { fontSize: 13, marginLeft: 4, flex: 1 },
 
   diaVacio: {
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 30,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#f0f0f0',
     borderStyle: 'dashed'
   },
-  diaVacioTexto: { fontSize: 14, color: '#ccc', marginTop: 10 }
+  diaVacioTexto: { fontSize: 14, marginTop: 10 }
 });

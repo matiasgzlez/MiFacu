@@ -204,7 +204,7 @@ export default function DetalleMateriaScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor={colorTema} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colorTema} />
 
       <AnimatedHeaderScrollView
         largeTitle={materia.nombre}

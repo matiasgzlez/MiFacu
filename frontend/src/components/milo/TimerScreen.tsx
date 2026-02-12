@@ -172,9 +172,9 @@ export function TimerScreen({ onSessionComplete, onSliderGestureActive }: TimerS
 
   // Colors
   const accentColor = isDark ? '#F5C842' : mifacuGold;
-  const bgColor = isDark ? '#000000' : '#F8FAFC';
-  const cardColor = isDark ? '#1C1C1E' : '#FFFFFF';
-  const tabBg = isDark ? '#1C1C1E' : '#F2F2F7';
+  const bgColor = theme.background;
+  const cardColor = theme.backgroundSecondary;
+  const tabBg = theme.backgroundSecondary;
   const tabActiveBg = isDark ? '#2C2C2E' : '#FFFFFF';
 
   return (

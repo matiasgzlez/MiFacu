@@ -72,7 +72,7 @@ export default function PomodoroTimer({
 
   const bgColor = isDark ? MILO_COLORS.background : MILO_COLORS.backgroundLight;
   const textColor = isDark ? MILO_COLORS.white : MILO_COLORS.grayDark;
-  const subtextColor = isDark ? MILO_COLORS.gray : '#777';
+  const subtextColor = isDark ? MILO_COLORS.gray : '#6B7280';
   const cardBg = isDark ? MILO_COLORS.cardDark : MILO_COLORS.white;
 
   const modes: { key: PomodoroMode; label: string }[] = [

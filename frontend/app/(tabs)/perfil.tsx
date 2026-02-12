@@ -165,7 +165,7 @@ export default function PerfilScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'light-content'} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
 
       <AnimatedHeaderScrollView
         largeTitle="Perfil"
@@ -291,7 +291,7 @@ export default function PerfilScreen() {
                 value={privacyMode}
                 onValueChange={handlePrivacyChange}
                 trackColor={{ false: theme.separator, true: theme.tint + '60' }}
-                thumbColor={privacyMode ? theme.tint : '#f4f3f4'}
+                thumbColor={privacyMode ? theme.tint : (isDark ? '#555' : '#f4f3f4')}
                 ios_backgroundColor={theme.separator}
               />
             </View>
@@ -426,7 +426,7 @@ export default function PerfilScreen() {
                     __devSetPremium(val);
                   }}
                   trackColor={{ false: theme.separator, true: mifacuGold + '60' }}
-                  thumbColor={isPro ? mifacuGold : '#f4f3f4'}
+                  thumbColor={isPro ? mifacuGold : (isDark ? '#555' : '#f4f3f4')}
                   ios_backgroundColor={theme.separator}
                 />
               </View>

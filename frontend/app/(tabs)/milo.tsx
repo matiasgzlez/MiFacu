@@ -60,9 +60,9 @@ function MiloContent() {
     }
   }, [gamification]);
 
-  const bgColor = isDark ? '#000000' : '#F8FAFC';
+  const bgColor = theme.background;
   const accentColor = isDark ? '#F5C842' : mifacuGold;
-  const tabBarBg = isDark ? '#1C1C1E' : '#F2F2F7';
+  const tabBarBg = theme.backgroundSecondary;
   const tabActiveBg = isDark ? '#2C2C2E' : '#FFFFFF';
 
   return (

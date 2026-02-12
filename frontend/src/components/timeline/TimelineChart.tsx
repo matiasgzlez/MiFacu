@@ -284,7 +284,7 @@ export default function TimelineChart({
                       isToday && styles.todayCircle,
                       isSelected && !isToday && [
                         styles.selectedCircle,
-                        { backgroundColor: isDark ? '#333' : '#E5E7EB' },
+                        { backgroundColor: isDark ? theme.backgroundSecondary : '#E5E7EB' },
                       ],
                     ]}
                   >
@@ -293,7 +293,7 @@ export default function TimelineChart({
                         styles.dayNumber,
                         { color: theme.text },
                         !cell.isCurrentMonth && {
-                          color: isDark ? '#444' : '#CBD5E1',
+                          color: isDark ? theme.separator : '#CBD5E1',
                         },
                         instColor && !isToday && !isSelected && {
                           color: instColor,
@@ -371,7 +371,7 @@ export default function TimelineChart({
                   key={ev.id}
                   style={[
                     styles.eventCard,
-                    { backgroundColor: isDark ? '#1a1a1a' : '#FFFFFF' },
+                    { backgroundColor: theme.backgroundSecondary },
                   ]}
                 >
                   <View
