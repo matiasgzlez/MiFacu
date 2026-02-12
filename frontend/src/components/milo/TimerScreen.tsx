@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { Colors, mifacuGold, mifacuNavy } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 import { useColorScheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { usePomodoroTimer, TimerStatus } from '../../hooks/usePomodoroTimer';
@@ -26,9 +26,12 @@ interface TimerScreenProps {
     durationMinutes: number;
     subject: SelectedSubject | null;
     xpEarned: number;
+    subiDeNivel: boolean;
   }) => void;
   /** Called when user starts/stops dragging the circular slider */
   onSliderGestureActive?: (active: boolean) => void;
+  /** Tier accent color based on user level */
+  tierColor?: string;
 }
 
 function formatTime(seconds: number): string {
@@ -42,7 +45,7 @@ function formatTime(seconds: number): string {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-export function TimerScreen({ onSessionComplete, onSliderGestureActive }: TimerScreenProps) {
+export function TimerScreen({ onSessionComplete, onSliderGestureActive, tierColor: tierColorProp }: TimerScreenProps) {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme];
   const { user } = useAuth();
@@ -74,6 +77,7 @@ export function TimerScreen({ onSessionComplete, onSliderGestureActive }: TimerS
     if (!user?.id || durationMinutes < 1) return;
 
     const xpEarned = calculateSessionXP(durationMinutes, false);
+    let subiDeNivel = false;
 
     try {
       await pomodoroApi.complete({
@@ -86,11 +90,12 @@ export function TimerScreen({ onSessionComplete, onSliderGestureActive }: TimerS
         materiaId: subject?.type === 'materia' ? subject.id : undefined,
       });
 
-      await gamificationApi.completeSession({
+      const gamResult = await gamificationApi.completeSession({
         userId: user.id,
         duracionMinutos: durationMinutes,
         tipo: mode,
       });
+      subiDeNivel = gamResult?.subiDeNivel ?? false;
     } catch (e) {
       console.error('Error registering session:', e);
     }
@@ -100,6 +105,7 @@ export function TimerScreen({ onSessionComplete, onSliderGestureActive }: TimerS
       durationMinutes,
       subject,
       xpEarned,
+      subiDeNivel,
     });
   }, [user?.id, mode, subject, onSessionComplete]);
 
@@ -171,9 +177,7 @@ export function TimerScreen({ onSessionComplete, onSliderGestureActive }: TimerS
   const showCountdown = isFocusMode && focusTimer.status !== 'idle';
 
   // Colors
-  const accentColor = isDark ? '#F5C842' : mifacuGold;
-  const bgColor = theme.background;
-  const cardColor = theme.backgroundSecondary;
+  const accentColor = tierColorProp ?? '#6B7280';
   const tabBg = theme.backgroundSecondary;
   const tabActiveBg = isDark ? '#2C2C2E' : '#FFFFFF';
 
@@ -240,6 +244,7 @@ export function TimerScreen({ onSessionComplete, onSliderGestureActive }: TimerS
             onChange={focusTimer.setDuration}
             disabled={false}
             onGestureActive={onSliderGestureActive}
+            tierColor={accentColor}
           />
         ) : isFocusMode ? (
           /* Focus mode running/paused/completed: show countdown ring */
@@ -249,6 +254,7 @@ export function TimerScreen({ onSessionComplete, onSliderGestureActive }: TimerS
               onChange={() => {}}
               max={focusTimer.durationMinutes}
               disabled={true}
+              tierColor={accentColor}
             />
             <View style={styles.countdownOverlay} pointerEvents="none">
               <Text style={[styles.countdownTime, { color: theme.text }]}>

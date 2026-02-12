@@ -18,10 +18,10 @@ import { StatsScreen } from '../../src/components/milo/StatsScreen';
 import { RankingScreen } from '../../src/components/milo/RankingScreen';
 import StatsPanel from '../../src/components/milo/StatsPanel';
 import SessionHistory from '../../src/components/milo/SessionHistory';
-import { Colors, mifacuGold } from '../../src/constants/theme';
+import { Colors } from '../../src/constants/theme';
 import { PremiumGate } from '../../src/components/premium';
 import { LevelUpModal } from '../../src/components/milo/LevelUpModal';
-import { Level, getLevelForXP } from '../../src/constants/levels';
+import { Level, getLevelForXP, getTierColor } from '../../src/constants/levels';
 
 type MiloTab = 'timer' | 'stats' | 'ranking';
 
@@ -51,17 +51,16 @@ function MiloContent() {
     setRefreshing(false);
   }, [gamification]);
 
-  const handleSessionComplete = useCallback(async () => {
-    const prevLevel = gamification.profile?.nivel ?? 1;
+  const handleSessionComplete = useCallback(async (data?: { subiDeNivel?: boolean }) => {
     setSessionCount((prev) => prev + 1);
     const newProfile = await gamification.refresh();
-    if (newProfile && newProfile.nivel > prevLevel) {
+    if (data?.subiDeNivel && newProfile) {
       setLevelUpInfo(getLevelForXP(newProfile.xpTotal));
     }
   }, [gamification]);
 
   const bgColor = theme.background;
-  const accentColor = isDark ? '#F5C842' : mifacuGold;
+  const tierColor = getTierColor(gamification.profile?.nivel ?? 1);
   const tabBarBg = theme.backgroundSecondary;
   const tabActiveBg = isDark ? '#2C2C2E' : '#FFFFFF';
 
@@ -88,7 +87,7 @@ function MiloContent() {
                 <Ionicons
                   name={isActive ? tab.icon : tab.iconOutline}
                   size={16}
-                  color={isActive ? accentColor : theme.icon}
+                  color={isActive ? tierColor : theme.icon}
                 />
                 <Text
                   style={[
@@ -121,12 +120,14 @@ function MiloContent() {
           <TimerScreen
             onSessionComplete={handleSessionComplete}
             onSliderGestureActive={(active) => setScrollEnabled(!active)}
+            tierColor={tierColor}
           />
 
           <StatsPanel
             profile={gamification.profile}
             loading={gamification.loading}
             isDark={isDark}
+            tierColor={tierColor}
           />
 
           <SessionHistory

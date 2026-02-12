@@ -8,7 +8,7 @@ import {
   Animated,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
-import { Level } from '../../constants/levels';
+import { Level, getTierColor } from '../../constants/levels';
 import { useTheme, useColorScheme } from '../../context/ThemeContext';
 import { Colors } from '../../constants/theme';
 
@@ -16,15 +16,6 @@ interface LevelUpModalProps {
   visible: boolean;
   level: Level | null;
   onClose: () => void;
-}
-
-function getBadgeColor(level: number): string {
-  if (level >= 40) return '#FF6B6B';
-  if (level >= 30) return '#A855F7';
-  if (level >= 20) return '#F59E0B';
-  if (level >= 10) return '#3B82F6';
-  if (level >= 5) return '#10B981';
-  return '#6B7280';
 }
 
 export function LevelUpModal({ visible, level, onClose }: LevelUpModalProps) {
@@ -57,7 +48,7 @@ export function LevelUpModal({ visible, level, onClose }: LevelUpModalProps) {
 
   if (!level) return null;
 
-  const badgeColor = getBadgeColor(level.level);
+  const badgeColor = getTierColor(level.level);
   const cardBg = theme.backgroundSecondary;
   const textColor = theme.text;
   const subtextColor = theme.icon;

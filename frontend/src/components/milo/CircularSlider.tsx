@@ -2,7 +2,7 @@ import React, { useRef, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, PanResponder, GestureResponderEvent, PanResponderGestureState } from 'react-native';
 import Svg, { Circle, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import * as Haptics from 'expo-haptics';
-import { Colors, mifacuGold, mifacuNavy } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 import { useColorScheme } from '../../context/ThemeContext';
 
 interface CircularSliderProps {
@@ -22,6 +22,8 @@ interface CircularSliderProps {
   disabled?: boolean;
   /** Called when user starts/stops dragging (used to disable parent scroll) */
   onGestureActive?: (active: boolean) => void;
+  /** Tier accent color based on user level */
+  tierColor?: string;
 }
 
 const STROKE_WIDTH = 12;
@@ -36,6 +38,7 @@ export function CircularSlider({
   size = 280,
   disabled = false,
   onGestureActive,
+  tierColor: tierColorProp,
 }: CircularSliderProps) {
   const colorScheme = useColorScheme();
   const theme = Colors[colorScheme];
@@ -167,8 +170,8 @@ export function CircularSlider({
 
   const isDark = colorScheme === 'dark';
   const trackColor = isDark ? '#2A2A2E' : '#E2E8F0';
-  const accentColor = isDark ? '#F5C842' : mifacuGold;
-  const knobFill = isDark ? '#F5C842' : mifacuNavy;
+  const accentColor = tierColorProp ?? '#6B7280';
+  const knobFill = accentColor;
 
   return (
     <View
@@ -184,7 +187,7 @@ export function CircularSlider({
         <Defs>
           <LinearGradient id="progressGrad" x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor={accentColor} stopOpacity="1" />
-            <Stop offset="1" stopColor={isDark ? '#FF9F0A' : mifacuNavy} stopOpacity="1" />
+            <Stop offset="1" stopColor={accentColor} stopOpacity="0.6" />
           </LinearGradient>
         </Defs>
 

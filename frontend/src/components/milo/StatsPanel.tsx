@@ -21,18 +21,22 @@ interface StatsPanelProps {
   profile: GamificationProfile | null;
   loading: boolean;
   isDark: boolean;
+  /** Tier accent color based on user level */
+  tierColor?: string;
 }
 
-export default function StatsPanel({ profile, loading, isDark }: StatsPanelProps) {
+export default function StatsPanel({ profile, loading, isDark, tierColor }: StatsPanelProps) {
   const cardBg = isDark ? '#1A2C32' : COLORS.white;
   const textColor = isDark ? COLORS.white : COLORS.grayDark;
   const subtextColor = isDark ? COLORS.gray : '#777';
   const progressBg = isDark ? '#2A3A40' : COLORS.grayLight;
 
+  const badgeColor = tierColor ?? COLORS.green;
+
   if (loading) {
     return (
       <View style={[styles.card, { backgroundColor: cardBg }]}>
-        <ActivityIndicator color={COLORS.green} />
+        <ActivityIndicator color={badgeColor} />
       </View>
     );
   }
@@ -53,7 +57,7 @@ export default function StatsPanel({ profile, loading, isDark }: StatsPanelProps
     <View style={[styles.card, { backgroundColor: cardBg }]}>
       {/* Level & XP Row */}
       <View style={styles.levelRow}>
-        <View style={styles.levelBadge}>
+        <View style={[styles.levelBadge, { backgroundColor: badgeColor, shadowColor: badgeColor }]}>
           <Text style={styles.levelNumber}>{profile.nivel}</Text>
         </View>
         <View style={styles.xpContainer}>
@@ -64,7 +68,7 @@ export default function StatsPanel({ profile, loading, isDark }: StatsPanelProps
             <View
               style={[
                 styles.progressFill,
-                { width: progressWidth as any, backgroundColor: COLORS.green },
+                { width: progressWidth as any, backgroundColor: badgeColor },
               ]}
             />
           </View>
@@ -138,10 +142,8 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: COLORS.green,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: COLORS.green,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.4,
     shadowRadius: 4,
