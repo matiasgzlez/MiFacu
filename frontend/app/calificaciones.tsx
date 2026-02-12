@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     View,
     Text,
@@ -10,12 +10,15 @@ import {
     RefreshControl,
     ActivityIndicator,
     KeyboardAvoidingView,
+    Modal,
+    ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '../src/constants/theme';
 import { useTheme } from '../src/context/ThemeContext';
 import { useAuth } from '../src/context/AuthContext';
@@ -25,6 +28,163 @@ import { CalificacionCard } from '../src/components/calificaciones/CalificacionC
 import { AgregarCalificacionSheet } from '../src/components/calificaciones/AgregarCalificacionSheet';
 import { ReportarSheet } from '../src/components/calificaciones/ReportarSheet';
 import { PremiumGate } from '../src/components/premium';
+
+const RULES_SEEN_KEY = 'calificaciones_rules_seen';
+
+const REGLAS = [
+    {
+        icon: 'checkmark-circle' as const,
+        title: 'Se respetuoso',
+        desc: 'Las criticas negativas estan permitidas, pero siempre con respeto. Podes decir "explica mal" o "los parciales son muy dificiles".',
+    },
+    {
+        icon: 'close-circle' as const,
+        title: 'Sin insultos ni agresiones',
+        desc: 'Los insultos, ataques personales y contenido ofensivo seran rechazados automaticamente por nuestro sistema de moderacion.',
+    },
+    {
+        icon: 'shield-checkmark' as const,
+        title: 'Moderacion con IA',
+        desc: 'Cada reseña es analizada por inteligencia artificial antes de publicarse. Si el contenido es inapropiado, no se publicara.',
+    },
+    {
+        icon: 'eye-off' as const,
+        title: 'Podes ser anonimo',
+        desc: 'Si preferis, podes publicar tu reseña de forma anonima. Tu identidad no sera visible para otros usuarios.',
+    },
+    {
+        icon: 'warning' as const,
+        title: 'Reporta contenido inadecuado',
+        desc: 'Si ves una reseña que no cumple las reglas, podes reportarla. Nuestro equipo la revisara.',
+    },
+];
+
+function ReglasModal({ visible, onAccept, theme }: { visible: boolean; onAccept: () => void; theme: any }) {
+    return (
+        <Modal visible={visible} animationType="fade" transparent statusBarTranslucent>
+            <View style={rulesStyles.overlay}>
+                <View style={[rulesStyles.card, { backgroundColor: theme.backgroundSecondary }]}>
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={rulesStyles.scrollContent}>
+                        <View style={[rulesStyles.iconCircle, { backgroundColor: theme.tint + '15' }]}>
+                            <Ionicons name="book" size={36} color={theme.tint} />
+                        </View>
+                        <Text style={[rulesStyles.title, { color: theme.text }]}>
+                            Reglas de Reseñas
+                        </Text>
+                        <Text style={[rulesStyles.subtitle, { color: theme.icon }]}>
+                            Antes de comenzar, lee las reglas de la comunidad
+                        </Text>
+
+                        {REGLAS.map((regla, i) => (
+                            <View key={i} style={[rulesStyles.ruleRow, { backgroundColor: theme.background }]}>
+                                <View style={[rulesStyles.ruleIcon, { backgroundColor: theme.tint + '12' }]}>
+                                    <Ionicons
+                                        name={regla.icon}
+                                        size={22}
+                                        color={regla.icon === 'close-circle' ? theme.red : theme.tint}
+                                    />
+                                </View>
+                                <View style={rulesStyles.ruleText}>
+                                    <Text style={[rulesStyles.ruleTitle, { color: theme.text }]}>{regla.title}</Text>
+                                    <Text style={[rulesStyles.ruleDesc, { color: theme.icon }]}>{regla.desc}</Text>
+                                </View>
+                            </View>
+                        ))}
+                    </ScrollView>
+
+                    <TouchableOpacity
+                        style={[rulesStyles.acceptBtn, { backgroundColor: theme.tint }]}
+                        onPress={onAccept}
+                        activeOpacity={0.8}
+                    >
+                        <Text style={rulesStyles.acceptText}>Entendido</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Modal>
+    );
+}
+
+const rulesStyles = StyleSheet.create({
+    overlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    card: {
+        borderRadius: 24,
+        width: '100%',
+        maxHeight: '85%',
+        paddingTop: 32,
+        paddingHorizontal: 24,
+        paddingBottom: 24,
+    },
+    scrollContent: {
+        paddingBottom: 16,
+    },
+    iconCircle: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        justifyContent: 'center',
+        alignItems: 'center',
+        alignSelf: 'center',
+        marginBottom: 16,
+    },
+    title: {
+        fontSize: 22,
+        fontWeight: '800',
+        textAlign: 'center',
+        marginBottom: 6,
+    },
+    subtitle: {
+        fontSize: 14,
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    ruleRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        borderRadius: 14,
+        padding: 14,
+        marginBottom: 10,
+    },
+    ruleIcon: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+        marginTop: 2,
+    },
+    ruleText: {
+        flex: 1,
+    },
+    ruleTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        marginBottom: 3,
+    },
+    ruleDesc: {
+        fontSize: 13,
+        lineHeight: 18,
+    },
+    acceptBtn: {
+        height: 52,
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 8,
+    },
+    acceptText: {
+        color: '#fff',
+        fontSize: 17,
+        fontWeight: '700',
+    },
+});
 
 function CalificacionesContent() {
     const router = useRouter();
@@ -47,6 +207,20 @@ function CalificacionesContent() {
         eliminarCalificacion,
         refetch,
     } = useCalificaciones(materiaIdNumber);
+
+    // Estado para las reglas (primera vez)
+    const [showRules, setShowRules] = useState(false);
+
+    useEffect(() => {
+        AsyncStorage.getItem(RULES_SEEN_KEY).then((value) => {
+            if (!value) setShowRules(true);
+        });
+    }, []);
+
+    const handleAcceptRules = useCallback(async () => {
+        await AsyncStorage.setItem(RULES_SEEN_KEY, 'true');
+        setShowRules(false);
+    }, []);
 
     // Estado para los modales
     const [showAgregarSheet, setShowAgregarSheet] = useState(false);
@@ -261,6 +435,9 @@ function CalificacionesContent() {
                 onSubmit={handleSubmitReporte}
                 theme={theme}
             />
+
+            {/* Modal de reglas (primera vez) */}
+            <ReglasModal visible={showRules} onAccept={handleAcceptRules} theme={theme} />
         </KeyboardAvoidingView>
     );
 }
