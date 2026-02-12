@@ -148,7 +148,7 @@ export default function MateriasScreen() {
 
   const materiasFiltradas = useMemo(() => {
     let filtered = misMaterias;
-    if (filtroActivo !== 'todas') {
+    if (filtroActivo !== 'todas' && filtroActivo !== 'no_cursado') {
       filtered = filtered.filter(m => m.estado === filtroActivo);
     }
     if (searchQuery.trim()) {
@@ -161,6 +161,17 @@ export default function MateriasScreen() {
     }
     return filtered;
   }, [misMaterias, searchQuery, filtroActivo]);
+
+  const materiasDisponiblesFiltradas = useMemo(() => {
+    if (filtroActivo !== 'no_cursado') return [];
+    if (!searchQuery.trim()) return materiasDisponibles;
+    const query = searchQuery.toLowerCase().trim();
+    return materiasDisponibles.filter(m =>
+      m.nombre.toLowerCase().includes(query) ||
+      m.nivel?.toString().includes(query) ||
+      m.numero?.toString().includes(query)
+    );
+  }, [materiasDisponibles, searchQuery, filtroActivo]);
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const modalSheetAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -311,7 +322,7 @@ export default function MateriasScreen() {
 
   const seleccionarMateria = (materia: Materia) => {
     setMateriaSeleccionada(materia);
-    setEstadoSeleccionado('no_cursado');
+    setEstadoSeleccionado('cursado');
     setSchedules([{ dia: 'LU', hora: 18, duracion: 2, aula: '' }]);
     setActiveScheduleIndex(0);
     setModoEdicion(false);
@@ -592,11 +603,25 @@ export default function MateriasScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: theme.icon }]}>
-              {filtroActivo === 'todas' ? 'MIS MATERIAS' : ESTADOS_MATERIA[filtroActivo].label.toUpperCase()} ({materiasFiltradas.length})
+              {filtroActivo === 'todas' ? 'MIS MATERIAS' : filtroActivo === 'no_cursado' ? `NO CURSADAS (${materiasDisponiblesFiltradas.length})` : `${ESTADOS_MATERIA[filtroActivo].label.toUpperCase()} (${materiasFiltradas.length})`}
             </Text>
           </View>
 
-          {materiasFiltradas.length === 0 ? (
+          {filtroActivo === 'no_cursado' ? (
+            materiasDisponiblesFiltradas.length === 0 ? (
+              <View style={[styles.emptyState, { backgroundColor: theme.backgroundSecondary }]}>
+                <Ionicons name="checkmark-circle" size={48} color={theme.green} />
+                <Text style={[styles.emptyText, { color: theme.text }]}>Ya tienes todas las materias</Text>
+                <Text style={[styles.emptySubtext, { color: theme.icon }]}>No quedan materias disponibles</Text>
+              </View>
+            ) : (
+              materiasDisponiblesFiltradas.map((item, index) => (
+                <AnimatedItem key={item.id} index={index}>
+                  {renderMateriaDisponible({ item })}
+                </AnimatedItem>
+              ))
+            )
+          ) : materiasFiltradas.length === 0 ? (
             <View style={[styles.emptyState, { backgroundColor: theme.backgroundSecondary }]}>
               {misMaterias.length === 0 ? (
                 <>
@@ -722,7 +747,7 @@ export default function MateriasScreen() {
                     <ScrollView style={styles.estadoOptionsScrollView} contentContainerStyle={styles.estadoOptionsContent} showsVerticalScrollIndicator={false}>
                       <Text style={[styles.modalSectionHeader, { color: theme.icon }]}>SELECCIONAR ESTADO</Text>
                       <View style={[styles.formGroup, { backgroundColor: theme.background }]}>
-                        {Object.entries(ESTADOS_MATERIA).map(([key, info], index, arr) => (
+                        {Object.entries(ESTADOS_MATERIA).filter(([key]) => modoEdicion || key !== 'no_cursado').map(([key, info], index, arr) => (
                           <TouchableOpacity
                             key={key}
                             style={[styles.inputRow, { borderBottomColor: theme.separator, borderBottomWidth: index === arr.length - 1 ? 0 : StyleSheet.hairlineWidth }]}
