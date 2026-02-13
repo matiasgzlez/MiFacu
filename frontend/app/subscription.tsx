@@ -47,11 +47,10 @@ export default function SubscriptionScreen() {
             hasPresented.current = true;
             setPresented(true);
 
-            RevenueCatUI.presentPaywallIfNeeded({
-                requiredEntitlementIdentifier: 'premium',
-            })
+            RevenueCatUI.presentPaywall()
                 .then(async (result: any) => {
-                    // Refrescar estado premium
+                    console.log('[RC] Paywall result:', result);
+                    // Refrescar estado premium despues de que el usuario cierre el paywall
                     await refresh();
                     router.back();
                 })
