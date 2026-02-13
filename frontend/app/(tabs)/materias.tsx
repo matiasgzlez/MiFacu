@@ -133,6 +133,8 @@ export default function MateriasScreen() {
     { dia: 'LU', hora: 18, duracion: 2, aula: '' }
   ]);
   const [activeScheduleIndex, setActiveScheduleIndex] = useState(0);
+  const [touchedBlocks, setTouchedBlocks] = useState<Set<number>>(new Set());
+  const estadoScrollRef = useRef<ScrollView>(null);
 
   const [horaInicioDate, setHoraInicioDate] = useState<Date>(() => {
     const d = new Date(); d.setHours(18, 0, 0, 0); return d;
@@ -248,6 +250,7 @@ export default function MateriasScreen() {
 
   const updateScheduleField = (index: number, field: keyof Schedule, value: any) => {
     setSchedules(prev => prev.map((s, i) => i === index ? { ...s, [field]: value } : s));
+    setTouchedBlocks(prev => { const next = new Set(prev); next.add(index); return next; });
   };
 
   // ─── Conflict validation ───
@@ -262,6 +265,8 @@ export default function MateriasScreen() {
   };
 
   const getConflictForBlock = (index: number): string | null => {
+    // Only validate conflicts for blocks the user has actually modified
+    if (!touchedBlocks.has(index)) return null;
     const block = schedules[index];
     // Internal conflict (same materia)
     for (let i = 0; i < schedules.length; i++) {
@@ -325,6 +330,7 @@ export default function MateriasScreen() {
     setEstadoSeleccionado('cursado');
     setSchedules([{ dia: 'LU', hora: 18, duracion: 2, aula: '' }]);
     setActiveScheduleIndex(0);
+    setTouchedBlocks(new Set());
     setModoEdicion(false);
 
     const initDate = new Date(); initDate.setHours(18, 0, 0, 0); setHoraInicioDate(initDate);
@@ -340,13 +346,39 @@ export default function MateriasScreen() {
   const guardarMateria = async () => {
     if (!materiaSeleccionada) return;
 
-    // Validar conflictos antes de guardar
+    // Validar conflictos antes de guardar (check all blocks regardless of touched state)
     if (estadoSeleccionado === 'cursado') {
+      // Temporarily mark all as touched for full validation
+      const allTouched = new Set(schedules.map((_, i) => i));
+      const prevTouched = touchedBlocks;
+      setTouchedBlocks(allTouched);
       for (let i = 0; i < schedules.length; i++) {
-        const conflict = getConflictForBlock(i);
-        if (conflict) {
-          Alert.alert('Conflicto de horario', conflict);
-          return;
+        const block = schedules[i];
+        // Internal conflict
+        for (let j = 0; j < schedules.length; j++) {
+          if (j === i) continue;
+          if (timeBlocksOverlap(block, schedules[j])) {
+            Alert.alert('Conflicto de horario', `Horario ${i + 1} se superpone con Horario ${j + 1}`);
+            setTouchedBlocks(prevTouched);
+            return;
+          }
+        }
+        // External conflict
+        const currentMateriaId = materiaEditando?.materiaId ?? materiaSeleccionada?.id;
+        const allMaterias = (misMateriasQuery.data as UsuarioMateria[] | undefined) || [];
+        for (const m of allMaterias) {
+          if (m.materiaId === currentMateriaId) continue;
+          if (m.estado !== 'cursado') continue;
+          const otherSchedules: Schedule[] = m.schedules?.length
+            ? m.schedules
+            : (m.dia && m.hora != null ? [{ dia: m.dia, hora: m.hora, duracion: m.duracion || 2, aula: m.aula }] : []);
+          for (const other of otherSchedules) {
+            if (timeBlocksOverlap(block, { dia: other.dia, hora: other.hora, duracion: other.duracion })) {
+              Alert.alert('Conflicto de horario', `Horario ${i + 1} tiene conflicto con ${m.materia.nombre} (${other.dia} ${other.hora}:00)`);
+              setTouchedBlocks(allTouched);
+              return;
+            }
+          }
         }
       }
     }
@@ -408,12 +440,15 @@ export default function MateriasScreen() {
 
     // Load schedules from array if available, else fallback to flat columns
     if (usuarioMateria.schedules && usuarioMateria.schedules.length > 0) {
-      setSchedules(usuarioMateria.schedules.map(s => ({
+      const loaded = usuarioMateria.schedules.map(s => ({
         dia: s.dia || 'LU',
         hora: s.hora ?? 18,
         duracion: s.duracion ?? 2,
         aula: s.aula || '',
-      })));
+      }));
+      setSchedules(loaded);
+      // Mark all loaded blocks as touched since they were previously saved
+      setTouchedBlocks(new Set(loaded.map((_, i) => i)));
     } else if (usuarioMateria.dia && usuarioMateria.hora != null) {
       setSchedules([{
         dia: usuarioMateria.dia,
@@ -421,8 +456,10 @@ export default function MateriasScreen() {
         duracion: usuarioMateria.duracion || 2,
         aula: usuarioMateria.aula || '',
       }]);
+      setTouchedBlocks(new Set([0]));
     } else {
       setSchedules([{ dia: 'LU', hora: 18, duracion: 2, aula: '' }]);
+      setTouchedBlocks(new Set());
     }
     setActiveScheduleIndex(0);
 
@@ -744,7 +781,7 @@ export default function MateriasScreen() {
                       </View>
                     )}
 
-                    <ScrollView style={styles.estadoOptionsScrollView} contentContainerStyle={styles.estadoOptionsContent} showsVerticalScrollIndicator={false}>
+                    <ScrollView ref={estadoScrollRef} style={styles.estadoOptionsScrollView} contentContainerStyle={[styles.estadoOptionsContent, { paddingBottom: 40 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" nestedScrollEnabled={true}>
                       <Text style={[styles.modalSectionHeader, { color: theme.icon }]}>SELECCIONAR ESTADO</Text>
                       <View style={[styles.formGroup, { backgroundColor: theme.background }]}>
                         {Object.entries(ESTADOS_MATERIA).filter(([key]) => modoEdicion || key !== 'no_cursado').map(([key, info], index, arr) => (
@@ -811,11 +848,14 @@ export default function MateriasScreen() {
                                       setActiveScheduleIndex(idx);
                                       const d = new Date(); d.setHours(sched.hora, 0, 0, 0); setHoraInicioDate(d);
                                       setShowInicioTimePicker(true);
+                                      if (Platform.OS === 'ios') {
+                                        setTimeout(() => estadoScrollRef.current?.scrollToEnd({ animated: true }), 150);
+                                      }
                                     }}
                                     style={styles.timeButton}
                                   >
-                                    <Text style={[styles.timeButtonText, { color: conflict ? theme.red : theme.blue }]}>
-                                      {conflict ? '--:--' : `${sched.hora.toString().padStart(2, '0')}:00`}
+                                    <Text style={[styles.timeButtonText, { color: touchedBlocks.has(idx) ? theme.blue : theme.icon }]}>
+                                      {touchedBlocks.has(idx) ? `${sched.hora.toString().padStart(2, '0')}:00` : '--:--'}
                                     </Text>
                                   </TouchableOpacity>
                                 </View>
@@ -827,11 +867,14 @@ export default function MateriasScreen() {
                                       setActiveScheduleIndex(idx);
                                       const d = new Date(); d.setHours(endHour, 0, 0, 0); setHoraFinDate(d);
                                       setShowFinTimePicker(true);
+                                      if (Platform.OS === 'ios') {
+                                        setTimeout(() => estadoScrollRef.current?.scrollToEnd({ animated: true }), 150);
+                                      }
                                     }}
                                     style={styles.timeButton}
                                   >
-                                    <Text style={[styles.timeButtonText, { color: conflict ? theme.red : theme.blue }]}>
-                                      {conflict ? '--:--' : `${endHour.toString().padStart(2, '0')}:00`}
+                                    <Text style={[styles.timeButtonText, { color: touchedBlocks.has(idx) ? theme.blue : theme.icon }]}>
+                                      {touchedBlocks.has(idx) ? `${endHour.toString().padStart(2, '0')}:00` : '--:--'}
                                     </Text>
                                   </TouchableOpacity>
                                 </View>

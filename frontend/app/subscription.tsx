@@ -57,7 +57,14 @@ export default function SubscriptionScreen() {
                 })
                 .catch((error: any) => {
                     console.error('Error presenting paywall:', error);
-                    router.back();
+                    const code = error?.code ?? '?';
+                    const msg = error?.message ?? '';
+                    const underlying = error?.underlyingErrorMessage ?? error?.readableErrorCode ?? '';
+                    const extra = JSON.stringify(error, null, 2)?.substring(0, 500);
+                    Alert.alert(
+                        `Paywall Error ${code}`,
+                        `${msg}\n\nUnderlying: ${underlying}\n\nFull: ${extra}`,
+                    );
                 });
         }
     }, [loading, isPro]);

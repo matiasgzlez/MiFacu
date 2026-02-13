@@ -471,13 +471,26 @@ export default function HomeScreen() {
     JU: 'JUEVES', VI: 'VIERNES', SA: 'SÁBADO', DO: 'DOMINGO',
   };
 
-  const renderCursandoItem = useCallback((item: MateriaUsuario) => {
-    const horaNum = typeof item.hora === 'number' ? item.hora : parseInt(String(item.hora));
-    const duracion = item.duracion || 2;
-    const horaFin = horaNum + duracion;
-    const horaStr = `${horaNum}:00`;
+  // Expand cursandoMaterias to one item per schedule entry
+  const carouselItems = useMemo(() => {
+    return cursandoMaterias.flatMap(m => {
+      const entries = m.schedules?.length
+        ? m.schedules
+        : (m.dia && m.hora != null ? [{ dia: m.dia, hora: m.hora, duracion: m.duracion || 2, aula: m.aula }] : []);
+      return entries.map(s => ({
+        nombre: m.materia?.nombre || m.nombre || 'Materia',
+        dia: s.dia,
+        hora: s.hora,
+        duracion: s.duracion,
+        aula: s.aula,
+      }));
+    });
+  }, [cursandoMaterias]);
+
+  const renderCursandoItem = useCallback((item: { nombre: string; dia: string; hora: number; duracion: number; aula?: string | null }) => {
+    const horaFin = item.hora + item.duracion;
+    const horaStr = `${item.hora}:00`;
     const horaFinStr = `${horaFin}:00`;
-    const nombre = item.materia?.nombre || item.nombre || 'Materia';
     const dia = DAY_LABELS[item.dia || ''] || item.dia || '';
     const aula = item.aula || '-';
 
@@ -495,7 +508,7 @@ export default function HomeScreen() {
           <Text style={styles.carouselCardDay}>{dia}</Text>
         </View>
         <Text style={styles.carouselCardMateria} numberOfLines={2}>
-          {nombre}
+          {item.nombre}
         </Text>
         <View style={styles.carouselCardFooter}>
           <View style={styles.carouselCardInfo}>
@@ -722,7 +735,7 @@ export default function HomeScreen() {
               </RippleRect>
 
               {/* Carousel — Materias Cursando */}
-              {cursandoMaterias.length > 0 && (
+              {carouselItems.length > 0 && (
                 <View>
                   <Pressable
                     onPress={toggleCursandoCollapsed}
@@ -749,7 +762,7 @@ export default function HomeScreen() {
                     overflow: 'hidden',
                   }}>
                     <CinematicCarousel
-                      data={cursandoMaterias}
+                      data={carouselItems}
                       renderItem={renderCursandoItem}
                       itemWidth={CAROUSEL_ITEM_WIDTH}
                       itemHeight={CAROUSEL_ITEM_HEIGHT}

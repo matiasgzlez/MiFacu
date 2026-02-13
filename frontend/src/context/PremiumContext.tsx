@@ -95,15 +95,14 @@ export function PremiumProvider({ children }: PremiumProviderProps) {
     }
 
     try {
-      if (Platform.OS === 'android') {
-        await Purchases.configure({ apiKey: APIKeys.google });
-      } else {
-        await Purchases.configure({ apiKey: APIKeys.apple });
-      }
+      const key = Platform.OS === 'android' ? APIKeys.google : APIKeys.apple;
+      console.log('[RC] Configuring with key:', key ? `${key.substring(0, 8)}...` : 'EMPTY');
+      await Purchases.configure({ apiKey: key });
+      console.log('[RC] Configure OK');
       setInitialized(true);
       await fetchData();
-    } catch (e) {
-      console.error('Error initializing RevenueCat', e);
+    } catch (e: any) {
+      console.error('[RC] Init error:', e?.code, e?.message, e?.underlyingErrorMessage);
       setLoading(false);
     }
   };
