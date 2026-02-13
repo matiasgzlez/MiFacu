@@ -3,9 +3,16 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+let openai: OpenAI | null = null;
+
+function getOpenAIClient(): OpenAI {
+    if (!openai) {
+        openai = new OpenAI({
+            apiKey: process.env.OPENAI_API_KEY,
+        });
+    }
+    return openai;
+}
 
 interface ResultadoModeracion {
     aprobado: boolean;
@@ -30,7 +37,7 @@ export async function moderarResena(comentario: string, profesorNombre: string):
     }
 
     try {
-        const response = await openai.chat.completions.create({
+        const response = await getOpenAIClient().chat.completions.create({
             model: 'gpt-4o-mini',
             temperature: 0,
             max_tokens: 150,
